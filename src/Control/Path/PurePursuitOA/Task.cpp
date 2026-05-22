@@ -644,20 +644,25 @@ namespace Control
           inf("Avoiding collision Static Circle");
 
           double obstRadPosition; //posição angular do centro do obstáculo relativamente ao veículo -pi:pi
+          double destRadPosition; //posição angular do próximo GoTo relativamente ao veículo -pi:pi
           double nowHeading;
-          double shift = 0.8 * (obstacle.radius+obstacle.nogoZoneDistance);
+          double shift = 0.35 * (obstacle.radius+obstacle.nogoZoneDistance);
           double horShift, verShift;  //meters
           double lonShift, latShift;  //degrees
+          double angular_distance;    //radians
 
           obstRadPosition = Angles::normalizeRadian(atan2(veicObstVerDist, veicObstHorDist));
+          destRadPosition = Angles::normalizeRadian(atan2(latDist2verDist(endPoint.lat-currPos.lat), lonDist2horDist(endPoint.lon-currPos.lon, currPos.lat)));
+          angular_distance = Angles::normalizeRadian(destRadPosition - obstRadPosition);
 
           // inf("Obstacle Direction: %f", obstRadPosition/M_PI);
           // inf("Shift: %f", shift);
           // war("m_headiung.value: %f", m_heading.value);
+          // inf("Angular Distance: %f", Angles::degrees(angular_distance));
 
 
 
-          if (Angles::normalizeRadian(obstRadPosition - m_heading.value) > 0)
+          if (angular_distance > 0)
           {
             nowHeading = Angles::normalizeRadian(obstRadPosition + M_PI/2);
           }
@@ -754,10 +759,14 @@ namespace Control
         void
         onDesiredPath(const IMC::DesiredPath* dp)
         {
-          war("DesiredPath: %f %f", dp->end_lon, dp->end_lat);
-          war("m_path: %f %f", m_path.end_lon, m_path.end_lat);
+          PathController::onDesiredPath(dp);
+          war("DesiredPath: %f %f %d", dp->end_lon, dp->end_lat, dp->getSourceEntity());
+          war("m_path:      %f %f %d", m_path.end_lon, m_path.end_lat, m_path.getSourceEntity());
 
-          //if (dp->getSourceEntity() == getEntityId())
+          // if (dp->getSourceEntity() == getEntityId())
+          // {
+
+          // }
           return;
         }
 
@@ -784,6 +793,7 @@ namespace Control
           if (contador)
           {
             pathInit(curr_lat, curr_lon, ts);
+            processMessage(m_obs_msg);
             contador--;
           }
 
@@ -809,6 +819,11 @@ namespace Control
             // war("AAAAAAAAAAAAAAAAAA");
             endPoint = {oldPath.lon, oldPath.lat};
             epIsSet = true;
+          }
+
+          if(m_path.getSourceEntity() == getEntityId())
+          {
+            war("AAAAAAAAAAAAAAAAAAAAAAA\n                                                            AAAAAAAAAAAAAAAAAAAAAAA\n                                                            AAAAAAAAAAAAAAAAAAAAAAA\n                                                            AAAAAAAAAAAAAAAAAAAAAAA");
           }
           if(newPath.lon != oldPath.lon || newPath.lat != oldPath.lat)    //verificar se o m_path.end mudou
           {
