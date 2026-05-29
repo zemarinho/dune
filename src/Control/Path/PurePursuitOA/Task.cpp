@@ -115,6 +115,7 @@ namespace Control
           .description("Obstacles definition.");
 
           bind<IMC::PlanControlState>(this);
+          // bind<IMC::VehicleState>(this);
         }
 
         void
@@ -598,38 +599,38 @@ namespace Control
         {
           inf("Getting out Static Rectangle");
 
-          if ((veicObstHorDist < 0 - obstacle.horizontalDistance/2) &
-              (veicObstVerDist > 0 - obstacle.verticalDistance/2))      //à esquerda do obstáculo
-          {
-            m_path.end_lon = currPos.lon;
-            m_path.end_lat = currPos.lat + verDist2latDist(obstacle.verticalDistance + 2*obstacle.nogoZoneDistance);
+          // if ((veicObstHorDist < 0 - obstacle.horizontalDistance/2) &
+          //     (veicObstVerDist > 0 - obstacle.verticalDistance/2))      //à esquerda do obstáculo
+          // {
+          //   m_path.end_lon = currPos.lon;
+          //   m_path.end_lat = currPos.lat + verDist2latDist(obstacle.verticalDistance + 2*obstacle.nogoZoneDistance);
 
-            m_heading.value = M_PI/2;
-          }
-          else if ( (veicObstHorDist > obstacle.horizontalDistance/2) &
-          (veicObstVerDist < obstacle.verticalDistance/2))      //à esquerda do obstáculo
-          {
-            m_path.end_lon = currPos.lon;
-            m_path.end_lat = currPos.lat - verDist2latDist(obstacle.verticalDistance + 2*obstacle.nogoZoneDistance);
+          //   m_heading.value = M_PI/2;
+          // }
+          // else if ( (veicObstHorDist > obstacle.horizontalDistance/2) &
+          // (veicObstVerDist < obstacle.verticalDistance/2))      //à esquerda do obstáculo
+          // {
+          //   m_path.end_lon = currPos.lon;
+          //   m_path.end_lat = currPos.lat - verDist2latDist(obstacle.verticalDistance + 2*obstacle.nogoZoneDistance);
 
-            m_heading.value = -M_PI/2;
-          }
-          else if ( (veicObstVerDist < 0 - obstacle.verticalDistance/2) &
-                    (veicObstHorDist < obstacle.horizontalDistance/2))
-          {
-            m_path.end_lat = currPos.lat;
-            m_path.end_lon = currPos.lon - horDist2lonDist(obstacle.horizontalDistance + 2*obstacle.nogoZoneDistance, obstacle.centerLatitude);
+          //   m_heading.value = -M_PI/2;
+          // }
+          // else if ( (veicObstVerDist < 0 - obstacle.verticalDistance/2) &
+          //           (veicObstHorDist < obstacle.horizontalDistance/2))
+          // {
+          //   m_path.end_lat = currPos.lat;
+          //   m_path.end_lon = currPos.lon - horDist2lonDist(obstacle.horizontalDistance + 2*obstacle.nogoZoneDistance, obstacle.centerLatitude);
 
-            m_heading.value = M_PI;
-          }
-          else if ( (veicObstVerDist > obstacle.verticalDistance/2) &
-                    (veicObstHorDist > 0 - obstacle.horizontalDistance/2))
-          {
-            m_path.end_lat = currPos.lat;
-            m_path.end_lon = currPos.lon + horDist2lonDist(obstacle.horizontalDistance + 2*obstacle.nogoZoneDistance, obstacle.centerLatitude);
+          //   m_heading.value = M_PI;
+          // }
+          // else if ( (veicObstVerDist > obstacle.verticalDistance/2) &
+          //           (veicObstHorDist > 0 - obstacle.horizontalDistance/2))
+          // {
+          //   m_path.end_lat = currPos.lat;
+          //   m_path.end_lon = currPos.lon + horDist2lonDist(obstacle.horizontalDistance + 2*obstacle.nogoZoneDistance, obstacle.centerLatitude);
 
-            m_heading.value = 0;
-          }
+          //   m_heading.value = 0;
+          // }
 
         }
 
@@ -664,11 +665,11 @@ namespace Control
 
           if (angular_distance > 0)
           {
-            nowHeading = Angles::normalizeRadian(obstRadPosition + M_PI/2);
+            nowHeading = Angles::normalizeRadian(obstRadPosition + (M_PI/2));
           }
           else
           {
-            nowHeading = Angles::normalizeRadian(obstRadPosition - M_PI/2);
+            nowHeading = Angles::normalizeRadian(obstRadPosition - (M_PI/2));
           }
 
           //inf("Heading Direction: %f", nowHeading*180/M_PI);
@@ -705,32 +706,38 @@ namespace Control
               (veicObstVerDist > 0 - obstacle.verticalDistance/2 - obstacle.nogoZoneDistance))      //à esquerda do obstáculo
           {
             m_path.end_lon = currPos.lon;
-            m_path.end_lat = currPos.lat + verDist2latDist(obstacle.verticalDistance + 2*obstacle.nogoZoneDistance + obstacle.safetyZoneDistance);
+            m_path.end_lat = currPos.lat +  verDist2latDist(obstacle.verticalDistance/2 + veicObstVerDist + obstacle.safetyZoneDistance);
+
+            war("AAAAAAAA");
 
             m_heading.value = M_PI/2;
           }
           else if ( (veicObstHorDist > obstacle.horizontalDistance/2 + obstacle.nogoZoneDistance) &
-                    (veicObstVerDist < obstacle.verticalDistance/2 + obstacle.nogoZoneDistance))      //à esquerda do obstáculo
+                    (veicObstVerDist < obstacle.verticalDistance/2 + obstacle.nogoZoneDistance))      //à direita do obstáculo
           {
             m_path.end_lon = currPos.lon;
-            m_path.end_lat = currPos.lat - verDist2latDist(obstacle.verticalDistance + 2*obstacle.nogoZoneDistance + obstacle.safetyZoneDistance);
+            m_path.end_lat = currPos.lat - verDist2latDist(obstacle.verticalDistance/2 + veicObstVerDist + obstacle.safetyZoneDistance);
 
+            war("BBBBBBBBB");
             m_heading.value = -M_PI/2;
           }
           else if ( (veicObstVerDist < 0 - obstacle.verticalDistance/2 - obstacle.nogoZoneDistance) &
-                    (veicObstHorDist < obstacle.horizontalDistance/2 + obstacle.nogoZoneDistance))
+                    (veicObstHorDist < obstacle.horizontalDistance/2 + obstacle.nogoZoneDistance))    //acima do obstáculo
           {
             m_path.end_lat = currPos.lat;
-            m_path.end_lon = currPos.lon - horDist2lonDist(obstacle.horizontalDistance + 2*obstacle.nogoZoneDistance + obstacle.safetyZoneDistance, obstacle.centerLatitude);
+            m_path.end_lon = currPos.lon + horDist2lonDist(obstacle.horizontalDistance/2 + veicObstHorDist + obstacle.safetyZoneDistance, obstacle.centerLatitude);
+
+            war("CCCCCCCC");
 
             m_heading.value = M_PI;
           }
           else if ( (veicObstVerDist > obstacle.verticalDistance/2 + obstacle.nogoZoneDistance) &
-                    (veicObstHorDist > 0 - obstacle.horizontalDistance/2 - obstacle.nogoZoneDistance))
+                    (veicObstHorDist > 0 - obstacle.horizontalDistance/2 - obstacle.nogoZoneDistance))    //abaixo do obstáculo
           {
             m_path.end_lat = currPos.lat;
-            m_path.end_lon = currPos.lon + horDist2lonDist(obstacle.horizontalDistance + 2*obstacle.nogoZoneDistance + obstacle.safetyZoneDistance, obstacle.centerLatitude);
+            m_path.end_lon = currPos.lon - horDist2lonDist(obstacle.horizontalDistance/2 + veicObstHorDist + obstacle.safetyZoneDistance, obstacle.centerLatitude);
 
+            war("DDDDDDDDD");
             m_heading.value = 0;
           }
 
@@ -762,6 +769,7 @@ namespace Control
           PathController::onDesiredPath(dp);
           war("DesiredPath: %f %f %d", dp->end_lon, dp->end_lat, dp->getSourceEntity());
           war("m_path:      %f %f %d", m_path.end_lon, m_path.end_lat, m_path.getSourceEntity());
+          war("self:  %u", getEntityId());
 
           // if (dp->getSourceEntity() == getEntityId())
           // {
@@ -793,7 +801,7 @@ namespace Control
           if (contador)
           {
             pathInit(curr_lat, curr_lon, ts);
-            processMessage(m_obs_msg);
+            // processMessage(m_obs_msg);
             contador--;
           }
 
@@ -804,10 +812,12 @@ namespace Control
 
           inf("I'm Here:        %f %f", currPos.lon, currPos.lat);
           //UNDER CONSTRUCTION*********************************************
-          newPath = {m_path.end_lon, m_path.end_lat};
+          // newPath = {m_path.end_lon, m_path.end_lat};
+          newPath = {Angles::degrees(m_ts.lon_en), Angles::degrees(m_ts.lat_en)};
 
           // inf("%d", getEntityId());
           // inf("%d", m_path.getSourceEntity());
+          inf("TrackingStat:    %f %f", newPath.lon, newPath.lat);
 
 
           currAvoidState = checkPosition(m_obstacles);
@@ -821,10 +831,21 @@ namespace Control
             epIsSet = true;
           }
 
-          if(m_path.getSourceEntity() == getEntityId())
+          // Se DEIXOU de evitar colisão, restaurar o destino original
+          if (!currAvoidState && oldAvoidState && epIsSet)
           {
-            war("AAAAAAAAAAAAAAAAAAAAAAA\n                                                            AAAAAAAAAAAAAAAAAAAAAAA\n                                                            AAAAAAAAAAAAAAAAAAAAAAA\n                                                            AAAAAAAAAAAAAAAAAAAAAAA");
+            war("Saiu de evasão, restaurando destino original");
+            m_path.end_lon = endPoint.lon;      //restaurar o GoTo original
+            m_path.end_lat = endPoint.lat;      //restaurar o GoTo original
+            epIsSet = false;                    //o endPoint pode ser atualizado para o próximo GoTo
+            dsptch = true;
           }
+
+          // if(ts.getSourceEntity() != getEntityId())
+          // {
+          //   war("AAAAAAAAAAAAAAAAAAAAAAA\n                                                            AAAAAAAAAAAAAAAAAAAAAAA\n                                                            AAAAAAAAAAAAAAAAAAAAAAA\n                                                            AAAAAAAAAAAAAAAAAAAAAAA");
+          // }
+
           if(newPath.lon != oldPath.lon || newPath.lat != oldPath.lat)    //verificar se o m_path.end mudou
           {
             // war("BBBBBBBBBBBBBBBBBB");
@@ -840,11 +861,15 @@ namespace Control
           if (!currAvoidState && m_ts.nearby && (clic % 20 == 0))
           {
             // war("CCCCCCCCCCCC");
-            m_path.end_lon = endPoint.lon;      //passar o próximo GoTo
-            m_path.end_lat = endPoint.lat;      //passar o próximo GoTo
-            epIsSet = false;                    //o endPoint pode ser atualizado para o próximo GoTo
-            m_ts.nearby = false;                //já não está próximo do destino imediato
-            dsptch = true;
+            // Nota: Se já restaurou na lógica acima, isto não vai executar novamente
+            if (epIsSet)
+            {
+              m_path.end_lon = endPoint.lon;      //passar o próximo GoTo
+              m_path.end_lat = endPoint.lat;      //passar o próximo GoTo
+              epIsSet = false;                    //o endPoint pode ser atualizado para o próximo GoTo
+              m_ts.nearby = false;                //já não está próximo do destino imediato
+              dsptch = true;
+            }
           }
 
           //inf("m_path 2:        %f %f", m_path.end_lon, m_path.end_lat);
@@ -860,7 +885,7 @@ namespace Control
 
           if ( currAvoidState != oldAvoidState || dsptch)           // Se o estado de avoidance atual mudou
           {
-            // inf("Mudou de estado");
+            inf("Mudou de estado");
 
             m_path.end_lon = Angles::normalizeRadian(Angles::radians(m_path.end_lon));
             m_path.end_lat = Angles::normalizeRadian(Angles::radians(m_path.end_lat));

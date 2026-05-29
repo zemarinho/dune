@@ -216,7 +216,7 @@ namespace DUNE
       param("Use Radius To Endpoint", m_use_radius_to_endpoint)
       .defaultValue("false")
       .description("Use radius to endpoint instead of ETA.");
-      
+
       param("Radius To Endpoint", m_end_radius)
       .defaultValue("5")
       .description("Radius around endpoint to consider maneuver as done.");
@@ -325,7 +325,7 @@ namespace DUNE
     void
     PathController::onDesiredPath(const IMC::DesiredPath* dp)
     { }
-      
+
     void
     PathController::consume(const IMC::Brake* brake)
     {
@@ -349,7 +349,7 @@ namespace DUNE
         return;
       }
 
-      //onDesiredPath(dpath);
+      onDesiredPath(dpath);
 
       const double now = Clock::get();
       const bool no_start = setStartPoint(now, dpath);
@@ -704,7 +704,7 @@ namespace DUNE
         WGS84::displacement(lat, lon, 0,
                             m_pcs.start_lat, m_pcs.start_lon, 0,
                             &m_ts.start.x, &m_ts.start.y);
-        
+
         // Loiter approach
         if (!m_ts.loitering && m_ts.loiter.radius > 0)
         {
@@ -743,6 +743,8 @@ namespace DUNE
 
       updateTrackingState();
 
+      war("prev:  %d", prev_nearby);
+      war("near:  %d", m_ts.nearby);
       reportPathControlState(!prev_nearby && m_ts.nearby);
 
       if (!m_ts.loitering)
@@ -1172,7 +1174,7 @@ namespace DUNE
         return m_estate.depth;
       else if (unit == IMC::Z_NONE)
         return m_estate.z;
-        
+
       throw std::runtime_error(DTR("Invalid Z unit"));
       return 0;
     }
