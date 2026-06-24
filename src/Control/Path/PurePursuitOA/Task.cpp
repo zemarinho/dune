@@ -31,6 +31,7 @@
 #include <cmath>
 #include <vector>
 #include <sstream>
+#include <unordered_map>
 
 // DUNE headers.
 #include <DUNE/DUNE.hpp>
