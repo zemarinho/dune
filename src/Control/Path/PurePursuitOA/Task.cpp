@@ -71,6 +71,8 @@ namespace Control
         double safetyZoneDistance = 0;      //meters; distance between perimether and safety zone margin
         double centerLongitude = 0;         //degrees
         double centerLatitude = 0;          //degrees
+        double old_centerLongitude = 0;     //degrees
+        double old_centerLatitude = 0;      //degrees
         double radius = 0;                  //meters
         double bottomLeftLongitude = 0;     //degrees
         double bottomLeftLatitude = 0;      //degrees
@@ -674,7 +676,13 @@ namespace Control
         void
         colisionCourse(Obstacle obstacle)
         {
-
+          /**
+           *TODO: em vez de old_centerlat e old_centerlon no obstáculo, criar vetor que guarda ultimas 5 posições
+           *TODO: na primeira inicialização do obstáculo todas as posições do vetor assumem o mesmo valor
+           *TODO: avaliar e implementar algoritmo fixado no chatgtp gmail 1
+           *TODO: colisionCourse() vai ser chamada na condição de o obstáculo ser pontual
+           *TODO: acrescentar if no checkPosition para verificar se a posição do obstáculo se alterou, e só nesse caso chamar colisionCourse()
+           */
         }
 
 
