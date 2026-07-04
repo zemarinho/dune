@@ -366,10 +366,10 @@ namespace Control
                   continue;
                 }
 
-                obstacle.bottomLeftLongitude = std::stod(rectangleParams_str[0]);
-                obstacle.bottomLeftLatitude  = std::stod(rectangleParams_str[1]);
-                obstacle.width               = std::stod(rectangleParams_str[2]);
-                obstacle.hight              = std::stod(rectangleParams_str[3]);
+                obstacle.bottomLeftLongitude  = std::stod(rectangleParams_str[0]);
+                obstacle.bottomLeftLatitude   = std::stod(rectangleParams_str[1]);
+                obstacle.width                = std::stod(rectangleParams_str[2]);
+                obstacle.hight                = std::stod(rectangleParams_str[3]);
 
                 centerLonLat(obstacle);
               }
@@ -423,7 +423,6 @@ namespace Control
           }
         }
 
-                    //verifica se o veículo está dentro das zonas de exlusão e chama as funções para tomarem a decisão
         /**
          * @brief Verifies if the vehicle is near an obstacle and calls the respective function acording the obstacle shape
          * @param obstacles list of obstacles to be checked
@@ -458,7 +457,7 @@ namespace Control
                 if (veicleObstacleDistance < obstacle.safetyZoneDistance)
                 {
                   inf("Trying to avoid collision Static Circle Point");
-                  goAroundStaticCircle(obstacle, horizontalDistanceV, verticalDistanceV);
+                  goAroundCircle(obstacle, horizontalDistanceV, verticalDistanceV);
                   avoidingcollision = 1;
                 }
                 else
@@ -472,7 +471,7 @@ namespace Control
                 if (veicleObstacleDistance < obstacle.radius + obstacle.safetyZoneDistance)
                 {
                   inf("Trying to avoid collision Static Circle Zone");
-                  goAroundStaticCircle(obstacle, horizontalDistanceV, verticalDistanceV);
+                  goAroundCircle(obstacle, horizontalDistanceV, verticalDistanceV);
                   avoidingcollision = 1;
                 }
                 else
@@ -488,7 +487,7 @@ namespace Control
                 if (veicleObstacleDistance < obstacle.safetyZoneDistance)
                 {
                   inf("Trying to avoid collision Static Rectangle Point");
-                  goAroundStaticCircle(obstacle, horizontalDistanceV, verticalDistanceV);
+                  goAroundCircle(obstacle, horizontalDistanceV, verticalDistanceV);
                   avoidingcollision = 1;
                 }
                 else
@@ -504,7 +503,7 @@ namespace Control
                     (verticalDistanceO > 0 - obstacle.hight/2 - obstacle.safetyZoneDistance)) //dentro da zona proibida
                 {
                   inf("Trying to avoid collision Static Rectangle Poin");
-                  goAroundStaticRectangle(obstacle, horizontalDistanceO, verticalDistanceO);
+                  goAroundRectangle(obstacle, horizontalDistanceO, verticalDistanceO);
                   avoidingcollision = 1;
                 }
                 else
@@ -537,7 +536,7 @@ namespace Control
          * @param veicObstVerDist vertizontal distance of the obstacle from the vehicle
          */
         void
-        goAroundStaticCircle(Obstacle obstacle, double veicObstHorDist, double veicObstVerDist)
+        goAroundCircle(Obstacle obstacle, double veicObstHorDist, double veicObstVerDist)
         {
           inf("Avoiding collision Static Circle");
 
@@ -584,8 +583,6 @@ namespace Control
 
         }
 
-
-
         /**
          * @brief Calculates an intermidiate Goto for going around a rectangle and passes it to m_path
          * @param obstacle obstacle in the way
@@ -604,7 +601,7 @@ namespace Control
          * @endcode
          */
         void
-        goAroundStaticRectangle(Obstacle obstacle, double veicObstHorDist, double veicObstVerDist)
+        goAroundRectangle(Obstacle obstacle, double veicObstHorDist, double veicObstVerDist)
         {
           war("Avoiding collision Static Rectangle");
           // inf("largura:   %f", obstacle.width);
