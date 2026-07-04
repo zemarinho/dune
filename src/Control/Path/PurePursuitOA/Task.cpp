@@ -383,8 +383,10 @@ namespace Control
             }
             if (m_obst_index.find(obstacle.id) != m_obst_index.end())
             {
-                war(">> Obstacle already exists: %s", obstacle.id.c_str());
-                continue;
+              war(">> Obstacle already exists: %s", obstacle.id.c_str());
+              war(">> Obstacle overwritten!!!");
+              m_obstacles[m_obst_index[obstacle.id]] = obstacle;
+              continue;
             }
             m_obst_index[obstacle.id] = m_obstacles.size();
             m_obstacles.push_back(obstacle);
@@ -665,6 +667,18 @@ namespace Control
           // }
           return;
         } */
+
+        /**
+         * @brief vreifica se dois obstáculos pontuais estão em rota de colisão
+         */
+        void
+        colisionCourse(Obstacle obstacle)
+        {
+
+        }
+
+
+
 
         int clic = 0;
         int contador = 1;
