@@ -65,17 +65,25 @@ namespace Control
 
       //! ex: 41.18279098/-8.70796953/56;41.18186403/-8.70552352/175/160
 
-      struct Position
+      //Par de valores de longitude/latitude em coordenadas geográficas (usado para posições ou distâncias)
+      struct Position_G
       {
         double lon;
         double lat;
+      };
+
+      //Par de valores em coordenadas cartesianas (em metros) (usado para distâncias ou velocidades)
+      struct Position_C
+      {
+        double h;
+        double v;
       };
       struct Obstacle
       {
         char type = 'E';                      //P=point, Z=zone, E=not defined -> error
         char shape = 'E';                     //C=circle, R=rectangle, E=not defined -> error
         double safetyZoneDistance = 0;        //meters; distance between perimether and safety zone margin
-        std::deque<Position> positions;  //list of the las positions of the obstacle (standard = 5)
+        std::deque<Position_G> positions;  //list of the las positions of the obstacle (standard = 5)
         double radius = 0;                    //meters
         double width = 0;                     //meters
         double height = 0;                    //meters
@@ -93,17 +101,17 @@ namespace Control
         std::string m_rmv_obst;                         //mensagem com obstáculo para remover
         std::vector<Obstacle> m_obstacles;              //vetor com os obstáculos
         std::unordered_map<std::string, int> m_obst_index;      //índices de cada obstáculo no vetor de obstáculos
-        Position finalPos;                              //destino imediato
-        Position endPoint;                              //próximo GoTo do percurso
-        Position currPos;                               //posição atual
+        Position_G finalPos;                              //destino imediato
+        Position_G endPoint;                              //próximo GoTo do percurso
+        Position_G currPos;                               //posição atual
         int oldAvoidState = 0;
         int currAvoidState = 0;
         bool clear_obst_list = false;
 
         bool epIsSet = false;                                     //se o endPoint já foi definido
         bool canChangeEP = true;                                  //pode-se alterar o endPoint
-        Position oldPath = {m_path.end_lon, m_path.end_lat};      //verifica seo m_path.end mudou ou não
-        Position newPath;                                         //verifica seo m_path.end mudou ou não
+        Position_G oldPath = {m_path.end_lon, m_path.end_lat};      //verifica seo m_path.end mudou ou não
+        Position_G newPath;                                         //verifica seo m_path.end mudou ou não
 
         bool finalPosChanged = true;
         bool hasStoredOriginal = false;           //se em endPoint está guardada o GoTo correto
@@ -179,11 +187,11 @@ namespace Control
          * @brief Calculates the center os the rectangle based on bottom left corner and sides dimensions
          * @param obstacle
          */
-        Position
+        Position_G
         centerLonLat(std::vector<std::string>& dimensions) //calcula o centro do obstáculo
         {
           /*find the center of the rectangle*/
-          Position pos;
+          Position_G pos;
           pos.lon = stod(dimensions[0]) + horDist2lonDist(stod(dimensions[2]), stod(dimensions[1]))/2;
           pos.lat = stod(dimensions[1]) + verDist2latDist(stod(dimensions[3]))/2;
           return pos;
@@ -268,7 +276,7 @@ namespace Control
           // war("EEEEEEEEEEEEEEEEEEEEEE");
           std::vector<std::string> obstacles_str;
           String::split(msg, "&", obstacles_str);
-          Position centro;
+          Position_G centro;
           std::string id;
           double largura;
           double altura;
@@ -676,10 +684,30 @@ namespace Control
         colisionCourse(Obstacle obstacle)
         {
           /**
+           *TODO: adicionar velocidade e heading à mensagem de obstáculo
+           *TODO: arranjarvariável com velocidade atual do veículo
            *TODO: avaliar e implementar algoritmo fixado no chatgtp gmail 1
            *TODO: colisionCourse() vai ser chamada na condição de o obstáculo ser pontual
            *TODO: acrescentar if no checkPosition para verificar se a posição do obstáculo se alterou, e só nesse caso chamar colisionCourse()
            */
+
+          Position_G veicDiference_G;
+          veicDiference_G.lon = finalPos.lon - currPos.lon;
+          veicDiference_G.lat = finalPos.lat - currPos.lat;
+
+          //conversão para metros;
+          Position_C veicDiference_C;
+          veicDiference_C.h = lonDist2horDist(veicDiference_G.lon, veicDiference_G.lat);
+          veicDiference_C.v = latDist2verDist(veicDiference_G.lat);
+
+          double veicDistance = sqrt(veicDiference_C.h * veicDiference_C.h + veicDiference_C.v * veicDiference_C.v);
+
+          Position_C veicDiferenceNormalized = {veicDiference.h/veicDistance, veicDiference.v/veicDistance};
+
+          //!arranjar valor da velocidade atual do veículo
+          Position_C veicVelocityVector = {veicDiferenceNormalized.h * veicVelocity, veicDiferenceNormalized.v * veicVelocity};
+
+
         }
 
 
