@@ -30,6 +30,7 @@
 // ISO C++ 98 headers.
 #include <cmath>
 #include <vector>
+#include <deque>
 #include <sstream>
 #include <unordered_map>
 
@@ -64,28 +65,27 @@ namespace Control
 
       //! ex: 41.18279098/-8.70796953/56;41.18186403/-8.70552352/175/160
 
-      struct Obstacle
-      {
-        char type = 'E';                    //P=point, Z=zone, E=not defined -> error
-        char shape = 'E';                   //C=circle, R=rectangle, E=not defined -> error
-        double safetyZoneDistance = 0;      //meters; distance between perimether and safety zone margin
-        double centerLongitude = 0;         //degrees
-        double centerLatitude = 0;          //degrees
-        double old_centerLongitude = 0;     //degrees
-        double old_centerLatitude = 0;      //degrees
-        double radius = 0;                  //meters
-        double bottomLeftLongitude = 0;     //degrees
-        double bottomLeftLatitude = 0;      //degrees
-        double width = 0;                   //meters
-        double hight = 0;                   //meters
-        std::string id = "";                //id
-      };
-
       struct Position
       {
         double lon;
         double lat;
       };
+      struct Obstacle
+      {
+        char type = 'E';                      //P=point, Z=zone, E=not defined -> error
+        char shape = 'E';                     //C=circle, R=rectangle, E=not defined -> error
+        double safetyZoneDistance = 0;        //meters; distance between perimether and safety zone margin
+        double centerLongitude = 0;           //degrees //!mudar para utilizar o vetor de posições
+        double centerLatitude = 0;            //degrees //!mudar para utilizar o vetor de posições
+        std::deque<Position> positions;  //list of the las positions of the obstacle (standard = 5)
+        double radius = 0;                    //meters
+        double bottomLeftLongitude = 0;       //degrees //!mudar para utilizar o vetor de posições
+        double bottomLeftLatitude = 0;        //degrees //!mudar para utilizar o vetor de posições
+        double width = 0;                     //meters
+        double height = 0;                    //meters
+        std::string id = "";                  //id
+      };
+
 
 
       struct Task: public DUNE::Control::PathController
@@ -183,15 +183,14 @@ namespace Control
          * @brief Calculates the center os the rectangle based on bottom left corner and sides dimensions
          * @param obstacle
          */
-        void
-        centerLonLat(Obstacle& obstacle) //calcula o centro do obstáculo
+        Position
+        centerLonLat(std::vector<std::string>& dimensions) //calcula o centro do obstáculo
         {
           /*find the center of the rectangle*/
-          obstacle.centerLongitude = obstacle.bottomLeftLongitude + horDist2lonDist(obstacle.width, obstacle.bottomLeftLatitude)/2;
-          obstacle.centerLatitude = obstacle.bottomLeftLatitude + verDist2latDist(obstacle.hight)/2;
-
-
-          return;
+          Position pos;
+          pos.lon = stod(dimensions[0]) + horDist2lonDist(stod(dimensions[2]), stod(dimensions[1]))/2;
+          pos.lat = stod(dimensions[1]) + verDist2latDist(stod(dimensions[3]))/2;
+          return pos;
         }
 
         /**
@@ -271,6 +270,14 @@ namespace Control
         processMessage(std::string msg)
         {
           // war("EEEEEEEEEEEEEEEEEEEEEE");
+          std::vector<std::string> obstacles_str;
+          String::split(msg, "&", obstacles_str);
+          Position centro;
+          std::string id;
+          double largura;
+          double altura;
+          bool existeID;
+
 
           if (clear_obst_list)
           {
@@ -280,116 +287,112 @@ namespace Control
           }
 
 
-          std::vector<std::string> obstacles_str;
-          String::split(msg, "&", obstacles_str);
-
-          for (const auto& obs_str : obstacles_str)
+          for (const auto& obs_str : obstacles_str)     //percorrer a mensagem com os obstáculos
           {
             std::vector<std::string> fields;
             String::split(obs_str, " ", fields);
-
+            existeID = false;
             Obstacle obstacle;
 
-            if (fields.size() != 4)
+            if (fields.size() != 4)                     //verificar se tem o número certo de campos
             {
               war("Incorrectly defined obstacle: %ld fields instead of 4", fields.size());
               continue;
             }
 
+            if (fields[3] == "")                        //verificar se tem id
+            {
+              war(">> Parameter incorrectly defined: without id");
+              continue;
+            }
+            obstacle.id = fields[3];
+
+            if (m_obst_index.find(obstacle.id) != m_obst_index.end())      //verifica se o id já existe
+            {
+              obstacle.positions = m_obstacles[m_obst_index[obstacle.id]].positions;
+
+            }
+
             std::string obstacleParams = fields[0];
 
-            if (obstacleParams.size() != 2)
+            if (obstacleParams.size() != 2)             //verificar se campo de tipo tem o tamanho correto
             {
               war("Parameter incorrectly defined: Params wrong size -> %li", obstacleParams.size());
               continue;
             }
 
             if ((obstacleParams[0] != 'P' && obstacleParams[0] != 'Z') ||
-                (obstacleParams[1] != 'C' && obstacleParams[1] != 'R'))
+                (obstacleParams[1] != 'C' && obstacleParams[1] != 'R'))       //verificar se os valores do campo de tipo são válidos
             {
               war("Parameter incorrectly defined: Value without meaning");
               continue;
             }
 
             obstacle.type  = obstacleParams[0];
-            obstacle.shape = obstacleParams[1];
+            obstacle.shape = (obstacle.type == 'P') ? 'C':obstacleParams[1];            //se o obstáculo é um ponto é tratado como um círculo
 
-            obstacle.safetyZoneDistance = std::stod(fields[1]);
+            std::vector<std::string> dimensions_str;
+            String::split(fields[2], ",", dimensions_str);
 
-            if (obstacle.type == 'P')
+            if (obstacle.shape == 'C' && dimensions_str.size() != 3)             //verificar se a forma do obstáculo é consistente com o número de parâmetros passado
             {
-              obstacle.shape = 'C';
 
-              std::vector<std::string> circleParams_str;
-              String::split(fields[2], ",", circleParams_str);
-
-              if (circleParams_str.size() != 3)
+              war(">> Parameter incorrectly defined: incorrect number of location parameters (1): %li; expected 3", dimensions_str.size());
+              if (dimensions_str.size() != 4)
               {
-                war(">> Parameter incorrectly defined: incorrect number of location parameters (1): %li", circleParams_str.size());
                 continue;
               }
-
-              obstacle.centerLongitude = std::stod(circleParams_str[0]);
-              obstacle.centerLatitude  = std::stod(circleParams_str[1]);
-              obstacle.radius = 0;
-
-              if (fields[3] == "")
-              {
-                war(">> Parameter incorrectly defined: incorrect id = %s", fields[3].c_str());
-                continue;
-              }
-              obstacle.id = fields[3];
+              war(">> Obstacle identified as a rectangle, treated as a circle, height ignored, width treated as radius");
             }
-            else
+            if (obstacle.shape == 'R' && dimensions_str.size() != 4)
             {
-              if (obstacle.shape == 'C')
-              {
-                std::vector<std::string> circleParams_str;
-                String::split(fields[2], ",", circleParams_str);
-
-                if (circleParams_str.size() != 3)
-                {
-                  war(">> Parameter incorrectly defined: incorrect number of location parameters (2): %li", circleParams_str.size());
-                  continue;
-                }
-
-                obstacle.centerLongitude = std::stod(circleParams_str[0]);
-                obstacle.centerLatitude  = std::stod(circleParams_str[1]);
-                obstacle.radius          = std::stod(circleParams_str[2]);
-              }
-              else
-              {
-                std::vector<std::string> rectangleParams_str;
-                String::split(fields[2], ",", rectangleParams_str);
-
-                if (rectangleParams_str.size() != 4)
-                {
-                  war(">> Parameter incorrectly defined: incorrect number of location parameters (3): %li", rectangleParams_str.size());
-                  continue;
-                }
-
-                obstacle.bottomLeftLongitude  = std::stod(rectangleParams_str[0]);
-                obstacle.bottomLeftLatitude   = std::stod(rectangleParams_str[1]);
-                obstacle.width                = std::stod(rectangleParams_str[2]);
-                obstacle.hight                = std::stod(rectangleParams_str[3]);
-
-                centerLonLat(obstacle);
-              }
-
-              if (fields[3] == "")
-              {
-                war(">> Parameter incorrectly defined: incorrect id = %s", fields[3].c_str());
-                continue;
-              }
-              obstacle.id = fields[3];
+              war(">> Parameter incorrectly defined: incorrect number of location parameters (2): %li; expected 4", dimensions_str.size());
+              continue;
             }
-            if (m_obst_index.find(obstacle.id) != m_obst_index.end())
+
+            centro = {std::stod(dimensions_str[0]), std::stod(dimensions_str[1])};
+            if (obstacle.shape == 'R')                                            //se o obstáculo é retangular, calcular o centro a partir do canto inferior esquerdo
+            {
+              centro = centerLonLat(dimensions_str);
+            }
+
+            if (m_obst_index.find(obstacle.id) != m_obst_index.end())               //se o obstáculo já existir, modificar apenas a lista de posições
             {
               war(">> Obstacle already exists: %s", obstacle.id.c_str());
-              war(">> Obstacle overwritten!!!");
+              war(">> Obstacle overwritten!!!"); //NOTA: modificar quando for feita receção para AIS ou outro sistema para não estar constantemente a ser imprimida a mensagem
+              obstacle.positions.push_front(centro);
+              obstacle.positions.pop_back();
               m_obstacles[m_obst_index[obstacle.id]] = obstacle;
               continue;
             }
+
+            for (int i=0; i<5; i++)                                               //colocar todas as posiçoes iguais num novo obstáculo
+            {
+              obstacle.positions.push_front(centro);
+            }
+
+            obstacle.safetyZoneDistance = std::stod(fields[1]);
+
+            if (obstacle.type == 'P')                                             //se o obstáculo é um ponto a distância que interessa é a margem de segurança
+            {
+              obstacle.radius = 0;
+              m_obst_index[obstacle.id] = m_obstacles.size();
+              m_obstacles.push_back(obstacle);
+              war(">> Obstacle added successfully: %s", obstacle.id.c_str());
+              continue;
+            }
+
+            if (obstacle.shape == 'C')                                //guardar dimensões do obstáculo
+            {
+              obstacle.radius = std::stod(dimensions_str[2]);
+              m_obst_index[obstacle.id] = m_obstacles.size();
+              m_obstacles.push_back(obstacle);
+              war(">> Obstacle added successfully: %s", obstacle.id.c_str());
+            }
+
+            obstacle.width = std::stod(dimensions_str[2]);
+            obstacle.height = std::stod(dimensions_str[3]);
+
             m_obst_index[obstacle.id] = m_obstacles.size();
             m_obstacles.push_back(obstacle);
             war(">> Obstacle added successfully: %s", obstacle.id.c_str());
@@ -503,8 +506,8 @@ namespace Control
               {
                 if ((horizontalDistanceO < obstacle.width/2 + obstacle.safetyZoneDistance) &&
                     (horizontalDistanceO > 0 - obstacle.width/2 - obstacle.safetyZoneDistance) &&
-                    (verticalDistanceO < obstacle.hight/2 + obstacle.safetyZoneDistance) &&
-                    (verticalDistanceO > 0 - obstacle.hight/2 - obstacle.safetyZoneDistance)) //dentro da zona proibida
+                    (verticalDistanceO < obstacle.height/2 + obstacle.safetyZoneDistance) &&
+                    (verticalDistanceO > 0 - obstacle.height/2 - obstacle.safetyZoneDistance)) //dentro da zona proibida
                 {
                   inf("Trying to avoid collision Static Rectangle Poin");
                   goAroundRectangle(obstacle, horizontalDistanceO, verticalDistanceO);
@@ -609,16 +612,16 @@ namespace Control
         {
           war("Avoiding collision Static Rectangle");
           // inf("largura:   %f", obstacle.width);
-          // inf("altura:    %f", obstacle.hight);
+          // inf("altura:    %f", obstacle.height);
           // inf("HorDist:   %f", veicObstHorDist);
           // inf("VerDist:   %f", veicObstVerDist);
           // inf("SafeDist:  %f", obstacle.safetyZoneDistance);
 
           if ((veicObstHorDist < 0 - obstacle.width/2) &&
-              (veicObstVerDist > 0 - obstacle.hight/2))      //à esquerda do obstáculo
+              (veicObstVerDist > 0 - obstacle.height/2))      //à esquerda do obstáculo
           {
             m_path.end_lon = currPos.lon;
-            m_path.end_lat = currPos.lat + verDist2latDist(obstacle.hight/2 - veicObstVerDist + obstacle.safetyZoneDistance);
+            m_path.end_lat = currPos.lat + verDist2latDist(obstacle.height/2 - veicObstVerDist + obstacle.safetyZoneDistance);
 
 
             // war("AAAAAAAA");
@@ -626,15 +629,15 @@ namespace Control
             m_heading.value = M_PI/2;
           }
           else if ((veicObstHorDist > 0 + obstacle.width/2) &&
-                   (veicObstVerDist < 0 + obstacle.hight/2))      //à direita do obstáculo
+                   (veicObstVerDist < 0 + obstacle.height/2))      //à direita do obstáculo
           {
             m_path.end_lon = currPos.lon;
-            m_path.end_lat = currPos.lat - verDist2latDist(obstacle.hight/2 + veicObstVerDist + obstacle.safetyZoneDistance);
+            m_path.end_lat = currPos.lat - verDist2latDist(obstacle.height/2 + veicObstVerDist + obstacle.safetyZoneDistance);
 
             // war("BBBBBBBBB");
             m_heading.value = -M_PI/2;
           }
-          else if ( (veicObstVerDist > 0 + obstacle.hight/2) &&
+          else if ( (veicObstVerDist > 0 + obstacle.height/2) &&
                     (veicObstHorDist > 0 - obstacle.width/2))    //acima do obstáculo
           {
             m_path.end_lat = currPos.lat;
@@ -644,7 +647,7 @@ namespace Control
 
             m_heading.value = M_PI;
           }
-          else if ( (veicObstVerDist < 0 - obstacle.hight/2) &&
+          else if ( (veicObstVerDist < 0 - obstacle.height/2) &&
                     (veicObstHorDist < 0 + obstacle.width/2))    //abaixo do obstáculo
           {
             m_path.end_lat = currPos.lat;
@@ -677,7 +680,7 @@ namespace Control
         colisionCourse(Obstacle obstacle)
         {
           /**
-           *TODO: em vez de old_centerlat e old_centerlon no obstáculo, criar vetor que guarda ultimas 5 posições
+           *!TODO: no processeMessage() simplificar o código
            *TODO: na primeira inicialização do obstáculo todas as posições do vetor assumem o mesmo valor
            *TODO: avaliar e implementar algoritmo fixado no chatgtp gmail 1
            *TODO: colisionCourse() vai ser chamada na condição de o obstáculo ser pontual

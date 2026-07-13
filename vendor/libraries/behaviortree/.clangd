@@ -2,8 +2,8 @@ CompileFlags:
   Add:
     - -xc++
     - -std=c++17
-    - -I/mnt/c/Users/zemig/Desktop/LSTS/dune/source/vendor/libraries/behaviortree/include
-    - -I/mnt/c/Users/zemig/Desktop/LSTS/dune/source/vendor/libraries/behaviortree/3rdparty
-    - -I/mnt/c/Users/zemig/Desktop/LSTS/dune/source/vendor/libraries/behaviortree/3rdparty/minitrace
-    - -I/mnt/c/Users/zemig/Desktop/LSTS/dune/source/vendor/libraries/behaviortree/3rdparty/tinyxml2
-    - -I/mnt/c/Users/zemig/Desktop/LSTS/dune/source/vendor/libraries/behaviortree/3rdparty/minicoro
+    - -I/home/jose/workspace/dune/source/vendor/libraries/behaviortree/include
+    - -I/home/jose/workspace/dune/source/vendor/libraries/behaviortree/3rdparty
+    - -I/home/jose/workspace/dune/source/vendor/libraries/behaviortree/3rdparty/minitrace
+    - -I/home/jose/workspace/dune/source/vendor/libraries/behaviortree/3rdparty/tinyxml2
+    - -I/home/jose/workspace/dune/source/vendor/libraries/behaviortree/3rdparty/minicoro
