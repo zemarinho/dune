@@ -75,12 +75,8 @@ namespace Control
         char type = 'E';                      //P=point, Z=zone, E=not defined -> error
         char shape = 'E';                     //C=circle, R=rectangle, E=not defined -> error
         double safetyZoneDistance = 0;        //meters; distance between perimether and safety zone margin
-        double centerLongitude = 0;           //degrees //!mudar para utilizar o vetor de posições
-        double centerLatitude = 0;            //degrees //!mudar para utilizar o vetor de posições
         std::deque<Position> positions;  //list of the las positions of the obstacle (standard = 5)
         double radius = 0;                    //meters
-        double bottomLeftLongitude = 0;       //degrees //!mudar para utilizar o vetor de posições
-        double bottomLeftLatitude = 0;        //degrees //!mudar para utilizar o vetor de posições
         double width = 0;                     //meters
         double height = 0;                    //meters
         std::string id = "";                  //id
@@ -446,10 +442,10 @@ namespace Control
             double verticalDistanceV, verticalDistanceO; //referência é o veículo, referência é o obstáculo
             double veicleObstacleDistance;
 
-            horizontalDistanceV = lonDist2horDist(obstacle.centerLongitude - currPos.lon, currPos.lat);
+            horizontalDistanceV = lonDist2horDist(obstacle.positions.front().lon - currPos.lon, currPos.lat);
             horizontalDistanceO = -horizontalDistanceV;
 
-            verticalDistanceV = latDist2verDist(obstacle.centerLatitude - currPos.lat);
+            verticalDistanceV = latDist2verDist(obstacle.positions.front().lon - currPos.lat);
             verticalDistanceO = -verticalDistanceV;
 
             veicleObstacleDistance = sqrt(horizontalDistanceV*horizontalDistanceV+verticalDistanceV*verticalDistanceV);
@@ -579,8 +575,8 @@ namespace Control
 
           // inf("Horizontal Shift: %f", horShift);
           // inf("Vertical Shift: %f", verShift);
-          // inf("Lon/Lat center obstacle: %f %f", obstacle.centerLongitude, obstacle.centerLatitude);
-          lonShift = horDist2lonDist(horShift, obstacle.centerLatitude);
+          // inf("Lon/Lat center obstacle: %f %f", obstacle.obstacle.positions.lon, obstacle.positions.lat);
+          lonShift = horDist2lonDist(horShift, obstacle.positions.front().lat);
           latShift = verDist2latDist(verShift);
 
           m_path.end_lon = currPos.lon + lonShift;
@@ -641,7 +637,7 @@ namespace Control
                     (veicObstHorDist > 0 - obstacle.width/2))    //acima do obstáculo
           {
             m_path.end_lat = currPos.lat;
-            m_path.end_lon = currPos.lon + horDist2lonDist(obstacle.width/2 - veicObstHorDist + obstacle.safetyZoneDistance, obstacle.centerLatitude);
+            m_path.end_lon = currPos.lon + horDist2lonDist(obstacle.width/2 - veicObstHorDist + obstacle.safetyZoneDistance, obstacle.positions.front().lat);
 
             // war("CCCCCCCC");
 
@@ -651,7 +647,7 @@ namespace Control
                     (veicObstHorDist < 0 + obstacle.width/2))    //abaixo do obstáculo
           {
             m_path.end_lat = currPos.lat;
-            m_path.end_lon = currPos.lon - horDist2lonDist(obstacle.width/2 + veicObstHorDist + obstacle.safetyZoneDistance, obstacle.centerLatitude);
+            m_path.end_lon = currPos.lon - horDist2lonDist(obstacle.width/2 + veicObstHorDist + obstacle.safetyZoneDistance, obstacle.positions.front().lat);
 
             // war("DDDDDDDDD");
             m_heading.value = 0;
@@ -680,8 +676,6 @@ namespace Control
         colisionCourse(Obstacle obstacle)
         {
           /**
-           *!TODO: no processeMessage() simplificar o código
-           *TODO: na primeira inicialização do obstáculo todas as posições do vetor assumem o mesmo valor
            *TODO: avaliar e implementar algoritmo fixado no chatgtp gmail 1
            *TODO: colisionCourse() vai ser chamada na condição de o obstáculo ser pontual
            *TODO: acrescentar if no checkPosition para verificar se a posição do obstáculo se alterou, e só nesse caso chamar colisionCourse()
@@ -734,7 +728,7 @@ namespace Control
           // inf("%d", getEntityId());
           // inf("%d", m_path.getSourceEntity());
           // inf("TrackingStat:    %f %f", newPath.lon, newPath.lat);
-          // inf("Center:          %f %f", m_obstacles[1].centerLongitude, m_obstacles[1].centerLatitude);
+          // inf("Center:          %f %f", m_obstacles[1].obstacle.positions.lon, m_obstacles[1].obstacle.positions.lat);
 
 
           currAvoidState = checkPosition(m_obstacles);
