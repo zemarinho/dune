@@ -687,13 +687,11 @@ namespace Control
         colisionCourse(Obstacle obstacle)
         {
           /**
-           *TODO: arranjarvariável com velocidade atual do veículo
-           *TODO: avaliar e implementar algoritmo fixado no chatgtp gmail 1
-           *TODO: colisionCourse() vai ser chamada na condição de o obstáculo ser pontual
-           *TODO: acrescentar if no checkPosition para verificar se a posição do obstáculo se alterou, e só nesse caso chamar colisionCourse()
+           * TODO: arranjarvariável com velocidade atual do veículo
+           * TODO: avaliar e implementar algoritmo fixado no chatgtp gmail 1
+           * TODO: colisionCourse() pode passar o método principal de avoidance: não deixar sequer chegar perto -> trajetória mais suave, manter o antigo para proximidade
+           * TODO: acrescentar if no checkPosition para verificar se a posição do obstáculo se alterou, e só nesse caso chamar colisionCourse()
            */
-
-
 
           // === cálculo do vetor de velocidade do veículo ===
           Position_G veicDiference_G;
@@ -749,14 +747,41 @@ namespace Control
           double minDistance = sqrt(minDistanceVector.h * minDistanceVector.h + minDistanceVector.v * minDistanceVector.v);
           // === End ===
 
-          if (maxProximityInstant > 0 && minDistance < obstacle.radius/2 + obstacle.safetyZoneDistance)
+          if (maxProximityInstant < 0 || minDistance > obstacle.radius/2 + obstacle.safetyZoneDistance) //verificar se há uma colisão eminente
           {
-            //*há colisão eminente
+            return;
           }
-macacos me mordam
+          goAroundFar(obstacle, minDistanceVector, obstVelocityVector);
         }
 
+        void
+        goAroundFar(Obstacle obstacle, Position_C minRelativePosition, Position_C obstVelocity)
+        {
+          // === calculo da perpendicular à posição relativa ===
+          double relativeDistance = sqrt(minRelativePosition.h * minRelativePosition.h + minRelativePosition.v * minRelativePosition.v);
 
+          Position_C normalToPosiction = {-minRelativePosition.v/relativeDistance, minRelativePosition.h/relativeDistance};
+          // === End ===
+
+          // === escolher o ponto de tangência ===
+          double scalarProduct = obstVelocity.h * normalToPosiction.h + obstVelocity.v * normalToPosiction.v;
+
+          Position_C offsetPosition;
+
+          if (scalarProduct > 0)
+          {
+            offsetPosition = {minRelativePosition.h + normalToPosiction.h * (obstacle.radius + obstacle.safetyZoneDistance), minRelativePosition.v + normalToPosiction.v * (obstacle.radius + obstacle.safetyZoneDistance)};
+          }
+          if (scalarProduct < 0)
+          {
+            offsetPosition = {minRelativePosition.h - normalToPosiction.h * (obstacle.radius + obstacle.safetyZoneDistance), minRelativePosition.v - normalToPosiction.v * (obstacle.radius + obstacle.safetyZoneDistance)};
+          }
+          if (scalarProduct == 0)
+          {
+            //*descobrir como fazer quando o obstáculo está quieto
+          }
+          // === End ===
+        }
 
 
         int clic = 0;
