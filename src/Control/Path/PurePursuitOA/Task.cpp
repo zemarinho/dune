@@ -87,6 +87,7 @@ namespace Control
         double radius = 0;                    //meters
         double width = 0;                     //meters
         double height = 0;                    //meters
+        double velocity = 0;                  //meters/second
         std::string id = "";                  //id
       };
 
@@ -262,8 +263,8 @@ namespace Control
         /**
          * @brief  Splits the message with obstacles, isolates their values and stores each of them on m_obstacles
          * @param  msg message where the obstacles are defined
-         * @note   Message strucure: Type,Shape safetyZoneDistance centerLon,centerLat,R/bottomLeftLon,bottomLeftLat,horizontalDist,verticalDist id
-         * @note   Message example:  ZC 10 -8.70796953,41.18279098,56 11 & ZR 10 -8.70552352,41.18186403,175,160 13
+         * @note   Message strucure: Type,Shape safetyZoneDistance centerLon,centerLat,radius,velocity id/bottomLeftLon,bottomLeftLat,horizontalDist,verticalDist,velocity id
+         * @note   Message example:  ZC 10 -8.70796953,41.18279098,56,0 circle & ZR 10 -8.70552352,41.18186403,175,160,0 rectangle
          * @note   '&' separates obstacles
          * @note   ' ' separates fields of an obstacle
          * @note   ',' separates values of a field
@@ -338,19 +339,19 @@ namespace Control
             std::vector<std::string> dimensions_str;
             String::split(fields[2], ",", dimensions_str);
 
-            if (obstacle.shape == 'C' && dimensions_str.size() != 3)             //verificar se a forma do obstáculo é consistente com o número de parâmetros passado
+            if (obstacle.shape == 'C' && dimensions_str.size() != 4)             //verificar se a forma do obstáculo é consistente com o número de parâmetros passado
             {
 
-              war(">> Parameter incorrectly defined: incorrect number of location parameters (1): %li; expected 3", dimensions_str.size());
+              war(">> Parameter incorrectly defined: incorrect number of location parameters (1): %li; expected 4", dimensions_str.size());
               if (dimensions_str.size() != 4)
               {
                 continue;
               }
               war(">> Obstacle identified as a rectangle, treated as a circle, height ignored, width treated as radius");
             }
-            if (obstacle.shape == 'R' && dimensions_str.size() != 4)
+            if (obstacle.shape == 'R' && dimensions_str.size() != 5)
             {
-              war(">> Parameter incorrectly defined: incorrect number of location parameters (2): %li; expected 4", dimensions_str.size());
+              war(">> Parameter incorrectly defined: incorrect number of location parameters (2): %li; expected 5", dimensions_str.size());
               continue;
             }
 
@@ -359,6 +360,8 @@ namespace Control
             {
               centro = centerLonLat(dimensions_str);
             }
+
+            obstacle.velocity = (obstacle.type == 'C') ? std::stod(dimensions_str[3]) : std::stod(dimensions_str[4]);
 
             if (m_obst_index.find(obstacle.id) != m_obst_index.end())               //se o obstáculo já existir, modificar apenas a lista de posições
             {
@@ -684,13 +687,15 @@ namespace Control
         colisionCourse(Obstacle obstacle)
         {
           /**
-           *TODO: adicionar velocidade e heading à mensagem de obstáculo
            *TODO: arranjarvariável com velocidade atual do veículo
            *TODO: avaliar e implementar algoritmo fixado no chatgtp gmail 1
            *TODO: colisionCourse() vai ser chamada na condição de o obstáculo ser pontual
            *TODO: acrescentar if no checkPosition para verificar se a posição do obstáculo se alterou, e só nesse caso chamar colisionCourse()
            */
 
+
+
+          // === cálculo do vetor de velocidade do veículo ===
           Position_G veicDiference_G;
           veicDiference_G.lon = finalPos.lon - currPos.lon;
           veicDiference_G.lat = finalPos.lat - currPos.lat;
@@ -702,10 +707,52 @@ namespace Control
 
           double veicDistance = sqrt(veicDiference_C.h * veicDiference_C.h + veicDiference_C.v * veicDiference_C.v);
 
-          Position_C veicDiferenceNormalized = {veicDiference.h/veicDistance, veicDiference.v/veicDistance};
+          Position_C veicDiferenceNormalized = {veicDiference_C.h/veicDistance, veicDiference_C.v/veicDistance};
 
           //!arranjar valor da velocidade atual do veículo
           Position_C veicVelocityVector = {veicDiferenceNormalized.h * veicVelocity, veicDiferenceNormalized.v * veicVelocity};
+          // === End ===
+
+
+          // === cálculo do vetor velocidade do obstáculo ===
+          double obstDiferenceH_C = 0;
+          double obstDiferenceV_C = 0;
+          Position_C obstVelocityVector;
+          //// double obstDirection; //heading radians [-pi;pi]
+
+          for (int i = 0; i<4; i++)
+          {
+            obstDiferenceH_C += lonDist2horDist(obstacle.positions[i].lon - obstacle.positions[i+1].lon, obstacle.positions[i].lat) * (4-i);
+            obstDiferenceV_C += latDist2verDist(obstacle.positions[i].lat - obstacle.positions[i+1].lat) * (4-i);
+          }
+
+          obstDiferenceH_C = obstDiferenceH_C/(4+3+2+1);
+          obstDiferenceV_C = obstDiferenceV_C/(4+3+2+1);
+
+          Position_C obstDirectionNormalized = {obstDiferenceH_C/sqrt(obstDiferenceH_C * obstDiferenceH_C + obstDiferenceV_C * obstDiferenceV_C), obstDiferenceV_C/sqrt(obstDiferenceH_C * obstDiferenceH_C + obstDiferenceV_C * obstDiferenceV_C)};
+
+          obstVelocityVector = {obstDirectionNormalized.h * obstacle.velocity, obstDirectionNormalized.v * obstacle.velocity};
+
+          //// obstDirection = Angles::normalizeRadian(atan2(obstDiferenceV_C, obstDiferenceH_C));
+          // === End ===
+
+          // === calculo de posição e velocidade relativas ===
+          Position_C relativePosition = {lonDist2horDist(obstacle.positions.front().lon - currPos.lon, currPos.lat), latDist2verDist(obstacle.positions.front().lat - currPos.lat)};
+          Position_C relativeVelocity = {obstVelocityVector.h - veicVelocityVector.h, obstVelocityVector.v - veicVelocityVector.v};
+          // === End ===
+
+          // === calculo do instante de maior proximidade entre o veículo e o obstáculo e da distância mínima ===
+          double maxProximityInstant = (relativePosition.h * relativeVelocity.h + relativePosition.v * relativeVelocity.v) / sqrt(relativeVelocity.h * relativeVelocity.h + relativeVelocity.v * relativeVelocity.v);
+
+          Position_C minDistanceVector = {relativePosition.h + relativeVelocity.h * maxProximityInstant, relativePosition.v + relativeVelocity.v * maxProximityInstant};
+
+          double minDistance = sqrt(minDistanceVector.h * minDistanceVector.h + minDistanceVector.v * minDistanceVector.v);
+          // === End ===
+
+          if (maxProximityInstant > 0 && minDistance < obstacle.radius/2 + obstacle.safetyZoneDistance)
+          {
+            //*há colisão eminente
+          }
 
 
         }
