@@ -687,7 +687,7 @@ namespace Control
         colisionCourse(Obstacle obstacle)
         {
           /**
-           * TODO: arranjarvariável com velocidade atual do veículo
+           * TODO: arranjar variável com velocidade atual do veículo
            * TODO: avaliar e implementar algoritmo fixado no chatgtp gmail 1
            * TODO: colisionCourse() pode passar o método principal de avoidance: não deixar sequer chegar perto -> trajetória mais suave, manter o antigo para proximidade
            * TODO: acrescentar if no checkPosition para verificar se a posição do obstáculo se alterou, e só nesse caso chamar colisionCourse()
@@ -740,7 +740,7 @@ namespace Control
           // === End ===
 
           // === calculo do instante de maior proximidade entre o veículo e o obstáculo e da distância mínima ===
-          double maxProximityInstant = (relativePosition.h * relativeVelocity.h + relativePosition.v * relativeVelocity.v) / sqrt(relativeVelocity.h * relativeVelocity.h + relativeVelocity.v * relativeVelocity.v);
+          double maxProximityInstant = -(relativePosition.h * relativeVelocity.h + relativePosition.v * relativeVelocity.v) / (relativeVelocity.h * relativeVelocity.h + relativeVelocity.v * relativeVelocity.v);
 
           Position_C minDistanceVector = {relativePosition.h + relativeVelocity.h * maxProximityInstant, relativePosition.v + relativeVelocity.v * maxProximityInstant};
 
@@ -766,21 +766,47 @@ namespace Control
           // === escolher o ponto de tangência ===
           double scalarProduct = obstVelocity.h * normalToPosiction.h + obstVelocity.v * normalToPosiction.v;
 
-          Position_C offsetPosition;
+          Position_C offsetPosition_C;
 
+          double shift = 1.05 * (obstacle.radius + obstacle.safetyZoneDistance);
           if (scalarProduct > 0)
           {
-            offsetPosition = {minRelativePosition.h + normalToPosiction.h * (obstacle.radius + obstacle.safetyZoneDistance), minRelativePosition.v + normalToPosiction.v * (obstacle.radius + obstacle.safetyZoneDistance)};
+            offsetPosition_C = {minRelativePosition.h + normalToPosiction.h * shift, minRelativePosition.v + normalToPosiction.v * shift};
           }
-          if (scalarProduct < 0)
+          else if (scalarProduct < 0)
           {
-            offsetPosition = {minRelativePosition.h - normalToPosiction.h * (obstacle.radius + obstacle.safetyZoneDistance), minRelativePosition.v - normalToPosiction.v * (obstacle.radius + obstacle.safetyZoneDistance)};
+            offsetPosition_C = {minRelativePosition.h - normalToPosiction.h * shift, minRelativePosition.v - normalToPosiction.v * shift};
           }
-          if (scalarProduct == 0)
+          else
           {
-            //*descobrir como fazer quando o obstáculo está quieto
+            double obstAngularPosition = Angles::normalizeRadian(atan2(minRelativePosition.v, minRelativePosition.h));
+            double destAngularPosition = Angles::normalizeRadian(atan2(latDist2verDist(endPoint.lat-currPos.lat), lonDist2horDist(endPoint.lon-currPos.lon, currPos.lat)));
+            double angularDistance = Angles::normalizeRadian(destAngularPosition - obstAngularPosition);
+            double nowHeading = 0;
+
+            if (angularDistance > 0)
+            {
+              nowHeading = Angles::normalizeRadian(obstAngularPosition + (M_PI/2));
+            }
+            else
+            {
+              nowHeading = Angles::normalizeRadian(obstAngularPosition - (M_PI/2));
+            }
+
+            double horShift = shift * cos(Angles::normalizeRadian(nowHeading));
+            double verShift = shift * sin(Angles::normalizeRadian(nowHeading));
+
+            offsetPosition_C = {minRelativePosition.h + horShift, minRelativePosition.v + verShift};
           }
           // === End ===
+
+          // === converter para coordenads geográficas ===
+          Position_G offsetPosition_G = {currPos.lon + horDist2lonDist(offsetPosition_C.h, currPos.lat), currPos.lat + verDist2latDist(offsetPosition_C.v)};
+          // === End ===
+
+          // === set m_path ===
+          m_path.end_lon = offsetPosition_G.lon;
+          m_path.end_lat = offsetPosition_G.lat;
         }
 
 
