@@ -102,10 +102,10 @@ namespace Control
         std::string m_rmv_obst;                         //mensagem com obstáculo para remover
         std::vector<Obstacle> m_obstacles;              //vetor com os obstáculos
         std::unordered_map<std::string, int> m_obst_index;      //índices de cada obstáculo no vetor de obstáculos
-        Position_G finalPos;                              //destino imediato
-        Position_G endPoint;                              //próximo GoTo do percurso
-        Position_G currPos;                               //posição atual
-        double currSpeed;                              //velocidade atual
+        Position_G finalPos = {};                        //destino imediato
+        Position_G endPoint = {};                        //próximo GoTo do percurso
+        Position_G currPos = {};                         //posição atual
+        double currSpeed = 0.0;                          //velocidade atual
         int oldAvoidState = 0;
         int currAvoidState = 0;
         bool clear_obst_list = false;
@@ -280,10 +280,6 @@ namespace Control
           String::split(msg, "&", obstacles_str);
           Position_G centro;
           std::string id;
-          double largura;
-          double altura;
-          bool existeID;
-
 
           if (clear_obst_list)
           {
@@ -297,7 +293,6 @@ namespace Control
           {
             std::vector<std::string> fields;
             String::split(obs_str, " ", fields);
-            existeID = false;
             Obstacle obstacle;
 
             if (fields.size() != 4)                     //verificar se tem o número certo de campos
@@ -362,14 +357,25 @@ namespace Control
               centro = centerLonLat(dimensions_str);
             }
 
-            obstacle.velocity = (obstacle.type == 'C') ? std::stod(dimensions_str[3]) : std::stod(dimensions_str[4]);
+            obstacle.velocity = (obstacle.shape == 'C') ? std::stod(dimensions_str[3]) : std::stod(dimensions_str[4]);
 
             if (m_obst_index.find(obstacle.id) != m_obst_index.end())               //se o obstáculo já existir, modificar apenas a lista de posições
             {
               war(">> Obstacle already exists: %s", obstacle.id.c_str());
               war(">> Obstacle overwritten!!!"); //NOTA: modificar quando for feita receção para AIS ou outro sistema para não estar constantemente a ser imprimida a mensagem
-              obstacle.positions.push_front(centro);
+
+
+            obstacle.positions.push_front(centro);
+
+            if (!obstacle.positions.empty())
+            {
               obstacle.positions.pop_back();
+            }
+            else
+            {
+              war(">> Positions Empty");
+            }
+
               m_obstacles[m_obst_index[obstacle.id]] = obstacle;
               continue;
             }
@@ -393,13 +399,12 @@ namespace Control
             if (obstacle.shape == 'C')                                //guardar dimensões do obstáculo
             {
               obstacle.radius = std::stod(dimensions_str[2]);
-              m_obst_index[obstacle.id] = m_obstacles.size();
-              m_obstacles.push_back(obstacle);
-              war(">> Obstacle added successfully: %s", obstacle.id.c_str());
             }
-
-            obstacle.width = std::stod(dimensions_str[2]);
-            obstacle.height = std::stod(dimensions_str[3]);
+            else
+            {
+              obstacle.width = std::stod(dimensions_str[2]);
+              obstacle.height = std::stod(dimensions_str[3]);
+            }
 
             m_obst_index[obstacle.id] = m_obstacles.size();
             m_obstacles.push_back(obstacle);
@@ -431,8 +436,15 @@ namespace Control
               m_obst_index[m_obstacles[pos].id] = pos;
             }
 
-            m_obstacles.pop_back();
-            m_obst_index.erase(it);
+            if (!m_obstacles[m_obst_index[id]].positions.empty())
+            {
+              m_obstacles.pop_back();
+              m_obst_index.erase(it);
+            }
+            else
+            {
+              war(">> Positions Empty");
+            }
 
             war("Obstacle successefully removed: %s", id.c_str());
           }
@@ -450,17 +462,24 @@ namespace Control
           // int counter = 0;
           for (const auto &obstacle : obstacles)
           {
-            double horizontalDistanceV, horizontalDistanceO; //referência é o veículo, referência é o obstáculo
-            double verticalDistanceV, verticalDistanceO; //referência é o veículo, referência é o obstáculo
-            double veicleObstacleDistance;
+            double horizontalDistanceV = 0, horizontalDistanceO = 0; //referência é o veículo, referência é o obstáculo
+            double verticalDistanceV = 0, verticalDistanceO = 0; //referência é o veículo, referência é o obstáculo
+            double veicleObstacleDistance = 0;
 
-            horizontalDistanceV = lonDist2horDist(obstacle.positions.front().lon - currPos.lon, currPos.lat);
-            horizontalDistanceO = -horizontalDistanceV;
+            if (!obstacle.positions.empty())
+            {
+              horizontalDistanceV = lonDist2horDist(obstacle.positions.front().lon - currPos.lon, currPos.lat);
+              horizontalDistanceO = -horizontalDistanceV;
 
-            verticalDistanceV = latDist2verDist(obstacle.positions.front().lon - currPos.lat);
-            verticalDistanceO = -verticalDistanceV;
+              verticalDistanceV = latDist2verDist(obstacle.positions.front().lat - currPos.lat);
+              verticalDistanceO = -verticalDistanceV;
 
-            veicleObstacleDistance = sqrt(horizontalDistanceV*horizontalDistanceV+verticalDistanceV*verticalDistanceV);
+              veicleObstacleDistance = sqrt(horizontalDistanceV*horizontalDistanceV+verticalDistanceV*verticalDistanceV);
+            }
+            else
+            {
+              war(">> Positions Empty");
+            }
 
             // war("Obstacle %d @ %fm", counter++, veicleObstacleDistance);
             // inf("I'm Here: %f %f", currPos.lon, currPos.lat);
@@ -555,13 +574,13 @@ namespace Control
         {
           inf("Avoiding collision Static Circle");
 
-          double obstRadPosition; //posição angular do centro do obstáculo relativamente ao veículo -pi:pi
-          double destRadPosition; //posição angular do próximo GoTo relativamente ao veículo -pi:pi
-          double nowHeading;
-          double shift = 0.35 * (obstacle.radius+obstacle.safetyZoneDistance);
-          double horShift, verShift;  //meters
-          double lonShift, latShift;  //degrees
-          double angular_distance;    //radians
+          double obstRadPosition=0; //posição angular do centro do obstáculo relativamente ao veículo -pi:pi
+          double destRadPosition=0; //posição angular do próximo GoTo relativamente ao veículo -pi:pi
+          double nowHeading=0;
+          double shift = 1.05 * (obstacle.radius+obstacle.safetyZoneDistance);
+          double horShift=0, verShift=0;  //meters
+          double lonShift=0, latShift=0;  //degrees
+          double angular_distance=0;    //radians
 
           obstRadPosition = Angles::normalizeRadian(atan2(veicObstVerDist, veicObstHorDist));
           destRadPosition = Angles::normalizeRadian(atan2(latDist2verDist(endPoint.lat-currPos.lat), lonDist2horDist(endPoint.lon-currPos.lon, currPos.lat)));
@@ -588,14 +607,21 @@ namespace Control
           // inf("Horizontal Shift: %f", horShift);
           // inf("Vertical Shift: %f", verShift);
           // inf("Lon/Lat center obstacle: %f %f", obstacle.obstacle.positions.lon, obstacle.positions.lat);
-          lonShift = horDist2lonDist(horShift, obstacle.positions.front().lat);
+          if (!obstacle.positions.empty())
+          {
+            lonShift = horDist2lonDist(horShift, obstacle.positions.front().lat);
+          }
+          else
+          {
+            war(">> Empty positions");
+          }
+
           latShift = verDist2latDist(verShift);
 
           m_path.end_lon = currPos.lon + lonShift;
           m_path.end_lat = currPos.lat + latShift;
           // m_heading.value = nowHeading;
           // inf("m_path circle:   %f %f", m_path.end_lon, m_path.end_lat);
-
         }
 
         /**
@@ -648,8 +674,15 @@ namespace Control
           else if ( (veicObstVerDist > 0 + obstacle.height/2) &&
                     (veicObstHorDist > 0 - obstacle.width/2))    //acima do obstáculo
           {
+            if (!obstacle.positions.empty())
+            {
+              m_path.end_lon = currPos.lon + horDist2lonDist(obstacle.width/2 - veicObstHorDist + obstacle.safetyZoneDistance, obstacle.positions.front().lat);
+            }
+            else
+            {
+              war("Empty Positions");
+            }
             m_path.end_lat = currPos.lat;
-            m_path.end_lon = currPos.lon + horDist2lonDist(obstacle.width/2 - veicObstHorDist + obstacle.safetyZoneDistance, obstacle.positions.front().lat);
 
             // war("CCCCCCCC");
 
@@ -658,8 +691,15 @@ namespace Control
           else if ( (veicObstVerDist < 0 - obstacle.height/2) &&
                     (veicObstHorDist < 0 + obstacle.width/2))    //abaixo do obstáculo
           {
+            if (!obstacle.positions.empty())
+            {
+              m_path.end_lon = currPos.lon - horDist2lonDist(obstacle.width/2 + veicObstHorDist + obstacle.safetyZoneDistance, obstacle.positions.front().lat);
+            }
+            else
+            {
+              war("Empty Positions");
+            }
             m_path.end_lat = currPos.lat;
-            m_path.end_lon = currPos.lon - horDist2lonDist(obstacle.width/2 + veicObstHorDist + obstacle.safetyZoneDistance, obstacle.positions.front().lat);
 
             // war("DDDDDDDDD");
             m_heading.value = 0;
@@ -703,6 +743,11 @@ namespace Control
 
           double veicDistance = sqrt(veicDiference_C.h * veicDiference_C.h + veicDiference_C.v * veicDiference_C.v);
 
+          if (veicDistance == 0)
+          {
+            war(">> Divisão por 0");
+          }
+
           Position_C veicDiferenceNormalized = {veicDiference_C.h/veicDistance, veicDiference_C.v/veicDistance};
 
           //!arranjar valor da velocidade atual do veículo
@@ -716,16 +761,32 @@ namespace Control
           Position_C obstVelocityVector;
           //// double obstDirection; //heading radians [-pi;pi]
 
-          for (int i = 0; i<4; i++)
+          int calculHelper = 0;
+
+          if (obstacle.positions.size() > 2)
           {
-            obstDiferenceH_C += lonDist2horDist(obstacle.positions[i].lon - obstacle.positions[i+1].lon, obstacle.positions[i].lat) * (4-i);
-            obstDiferenceV_C += latDist2verDist(obstacle.positions[i].lat - obstacle.positions[i+1].lat) * (4-i);
+            for (size_t i = 0; i<obstacle.positions.size()-1; i++)
+            {
+              obstDiferenceH_C += lonDist2horDist(obstacle.positions[i].lon - obstacle.positions[i+1].lon, obstacle.positions[i].lat) * (obstacle.positions.size()-1-i);
+              obstDiferenceV_C += latDist2verDist(obstacle.positions[i].lat - obstacle.positions[i+1].lat) * (obstacle.positions.size()-1-i);
+              calculHelper = obstacle.positions.size()-1-i;
+            }
           }
 
-          obstDiferenceH_C = obstDiferenceH_C/(4+3+2+1);
-          obstDiferenceV_C = obstDiferenceV_C/(4+3+2+1);
+          obstDiferenceH_C = obstDiferenceH_C/calculHelper;
+          obstDiferenceV_C = obstDiferenceV_C/calculHelper;
 
-          Position_C obstDirectionNormalized = {obstDiferenceH_C/sqrt(obstDiferenceH_C * obstDiferenceH_C + obstDiferenceV_C * obstDiferenceV_C), obstDiferenceV_C/sqrt(obstDiferenceH_C * obstDiferenceH_C + obstDiferenceV_C * obstDiferenceV_C)};
+          Position_C obstDirectionNormalized;
+          if (obstDiferenceH_C * obstDiferenceH_C + obstDiferenceV_C * obstDiferenceV_C == 0)
+          {
+            war(">> Divisão por 0");
+            obstDirectionNormalized = {obstDiferenceH_C/sqrt(obstDiferenceH_C * obstDiferenceH_C + obstDiferenceV_C * obstDiferenceV_C), obstDiferenceV_C};
+          }
+          else
+          {
+            obstDirectionNormalized = {obstDiferenceH_C/sqrt(obstDiferenceH_C * obstDiferenceH_C + obstDiferenceV_C * obstDiferenceV_C), obstDiferenceV_C/sqrt(obstDiferenceH_C * obstDiferenceH_C + obstDiferenceV_C * obstDiferenceV_C)};
+
+          }
 
           obstVelocityVector = {obstDirectionNormalized.h * obstacle.velocity, obstDirectionNormalized.v * obstacle.velocity};
 
@@ -733,12 +794,28 @@ namespace Control
           // === End ===
 
           // === calculo de posição e velocidade relativas ===
-          Position_C relativePosition = {lonDist2horDist(obstacle.positions.front().lon - currPos.lon, currPos.lat), latDist2verDist(obstacle.positions.front().lat - currPos.lat)};
+          Position_C relativePosition ={0, 0};
+          if (!obstacle.positions.empty())
+          {
+            relativePosition = {lonDist2horDist(obstacle.positions.front().lon - currPos.lon, currPos.lat), latDist2verDist(obstacle.positions.front().lat - currPos.lat)};
+          }
+          else
+          {
+            war("Empty Positions");
+          }
           Position_C relativeVelocity = {obstVelocityVector.h - veicVelocityVector.h, obstVelocityVector.v - veicVelocityVector.v};
           // === End ===
 
           // === calculo do instante de maior proximidade entre o veículo e o obstáculo e da distância mínima ===
-          double maxProximityInstant = -(relativePosition.h * relativeVelocity.h + relativePosition.v * relativeVelocity.v) / (relativeVelocity.h * relativeVelocity.h + relativeVelocity.v * relativeVelocity.v);
+          double maxProximityInstant = 0;
+          if ((relativeVelocity.h * relativeVelocity.h + relativeVelocity.v * relativeVelocity.v) != 0)
+          {
+            maxProximityInstant = -(relativePosition.h * relativeVelocity.h + relativePosition.v * relativeVelocity.v) / (relativeVelocity.h * relativeVelocity.h + relativeVelocity.v * relativeVelocity.v);
+          }
+          else
+          {
+            war(">> Divisão por 0");
+          }
 
           Position_C minDistanceVector = {relativePosition.h + relativeVelocity.h * maxProximityInstant, relativePosition.v + relativeVelocity.v * maxProximityInstant};
 
