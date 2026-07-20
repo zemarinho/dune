@@ -105,6 +105,7 @@ namespace Control
         Position_G finalPos;                              //destino imediato
         Position_G endPoint;                              //próximo GoTo do percurso
         Position_G currPos;                               //posição atual
+        double currSpeed;                              //velocidade atual
         int oldAvoidState = 0;
         int currAvoidState = 0;
         bool clear_obst_list = false;
@@ -687,9 +688,6 @@ namespace Control
         colisionCourse(Obstacle obstacle)
         {
           /**
-           * TODO: arranjar variável com velocidade atual do veículo
-           * TODO: avaliar e implementar algoritmo fixado no chatgtp gmail 1
-           * TODO: colisionCourse() pode passar o método principal de avoidance: não deixar sequer chegar perto -> trajetória mais suave, manter o antigo para proximidade
            * TODO: acrescentar if no checkPosition para verificar se a posição do obstáculo se alterou, e só nesse caso chamar colisionCourse()
            */
 
@@ -708,7 +706,7 @@ namespace Control
           Position_C veicDiferenceNormalized = {veicDiference_C.h/veicDistance, veicDiference_C.v/veicDistance};
 
           //!arranjar valor da velocidade atual do veículo
-          Position_C veicVelocityVector = {veicDiferenceNormalized.h * veicVelocity, veicDiferenceNormalized.v * veicVelocity};
+          Position_C veicVelocityVector = {veicDiferenceNormalized.h * currSpeed, veicDiferenceNormalized.v * currSpeed};
           // === End ===
 
 
@@ -819,6 +817,7 @@ namespace Control
           war("Step----------------------------------------");
           double curr_lat = state.lat;
           double curr_lon = state.lon;
+          currSpeed = ts.speed;
           WGS84::displace(state.x, state.y, &curr_lat, &curr_lon);
           bool dsptch = false;
 
