@@ -17241,6 +17241,56 @@ namespace DUNE
       fieldsToJSON(std::ostream& os__, unsigned nindent__) const;
     };
 
+    //!Manuver Decisions.
+    class ManeuverDecision: public Message
+    {
+    public:
+
+      bool manuever_resume;
+      std::string manuever_id;
+
+      static uint16_t
+      getIdStatic(void)
+      {
+        return 504;
+      }
+
+      ManeuverDecision(void);
+
+      ManeuverDecision*
+      clone(void) const
+      {
+        return new ManeuverDecision(*this);
+      }
+
+      void
+      clear(void);
+
+      int
+      validate(void) const;
+
+      uint8_t*
+      serializeFields(uint8_t* bfr__) const;
+
+      uint16_t
+      deserializeFields(const uint8_t* bfr__, uint16_t size__);
+
+      uint16_t
+      reverseDeserializeFields(const uint8_t* bfr__, uint16_t size__);
+
+      uint16_t
+      getId(void) const
+      {
+        return ManeuverDecision::getIdStatic();
+      }
+
+      const char*
+      getName(void) const
+      {
+        return "ManeuverDecision";
+      }
+    };
+
     //! Vehicle Command.
     class VehicleCommand: public Message
     {
