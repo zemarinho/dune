@@ -109,6 +109,7 @@ namespace Control
         int oldAvoidState = 0;
         int currAvoidState = 0;
         bool clear_obst_list = false;
+        std::string m_far_obst_id = "";
 
         bool epIsSet = false;                                     //se o endPoint já foi definido
         bool canChangeEP = true;                                  //pode-se alterar o endPoint
@@ -491,11 +492,6 @@ namespace Control
             double verticalDistanceV = 0, verticalDistanceO = 0; //referência é o veículo, referência é o obstáculo
             double veicleObstacleDistance = 0;
 
-            if (!avoidingcollision)
-            {
-              avoidingcollision = collisionCourse(obstacle);
-            }
-
             if (!obstacle.positions.empty())
             {
               horizontalDistanceV = lonDist2horDist(obstacle.positions.front().lon - currPos.lon, currPos.lat);
@@ -577,8 +573,36 @@ namespace Control
               }
             }
 
+            if (avoidingcollision != 2)
+            {
+              if (!m_far_obst_id.empty())
+              {
+                if (obstacle.id == m_far_obst_id)
+                {
+                  if (collisionCourse(obstacle))
+                  {
+                    avoidingcollision = 1;
+                  }
+                  else
+                  {
+                    m_far_obst_id = "";
+                  }
+                }
+              }
+              else if (!avoidingcollision && collisionCourse(obstacle))
+              {
+                m_far_obst_id = obstacle.id;
+                avoidingcollision = 1;
+              }
+            }
+
             // inf("Going to:        %f %f", m_path.end_lon, m_path.end_lat);
             // inf("Avoiding collision: %d", avoidingcollision);
+          }
+
+          if (avoidingcollision != 1)
+          {
+            m_far_obst_id = "";
           }
 
           if (!avoidingcollision)
@@ -758,9 +782,10 @@ namespace Control
         collisionCourse(Obstacle obstacle)
         {
           // === cálculo do vetor de velocidade do veículo ===
+          Position_G targetPos = epIsSet ? endPoint : finalPos;
           Position_G veicDiference_G;
-          veicDiference_G.lon = finalPos.lon - currPos.lon;
-          veicDiference_G.lat = finalPos.lat - currPos.lat;
+          veicDiference_G.lon = targetPos.lon - currPos.lon;
+          veicDiference_G.lat = targetPos.lat - currPos.lat;
 
           Position_C veicDiference_C;
           veicDiference_C.h = lonDist2horDist(veicDiference_G.lon, veicDiference_G.lat);
@@ -861,6 +886,19 @@ namespace Control
           // === calculo da perpendicular à posição relativa ===
           double relativeDistance = sqrt(minRelativePosition.h * minRelativePosition.h + minRelativePosition.v * minRelativePosition.v);
 
+          if (relativeDistance < 1e-9)
+          {
+            Position_G targetPos = epIsSet ? endPoint : finalPos;
+            minRelativePosition.h = lonDist2horDist(targetPos.lon - currPos.lon, currPos.lat);
+            minRelativePosition.v = latDist2verDist(targetPos.lat - currPos.lat);
+            relativeDistance = hypot(minRelativePosition.h, minRelativePosition.v);
+          }
+
+          if (relativeDistance < 1e-9)
+          {
+            return;
+          }
+
           Position_C normalToPosiction = {-minRelativePosition.v/relativeDistance, minRelativePosition.h/relativeDistance};
           // === End ===
 
@@ -881,7 +919,8 @@ namespace Control
           else
           {
             double obstAngularPosition = Angles::normalizeRadian(atan2(minRelativePosition.v, minRelativePosition.h));
-            double destAngularPosition = Angles::normalizeRadian(atan2(latDist2verDist(endPoint.lat-currPos.lat), lonDist2horDist(endPoint.lon-currPos.lon, currPos.lat)));
+            Position_G targetPos = epIsSet ? endPoint : finalPos;
+            double destAngularPosition = Angles::normalizeRadian(atan2(latDist2verDist(targetPos.lat-currPos.lat), lonDist2horDist(targetPos.lon-currPos.lon, currPos.lat)));
             double angularDistance = Angles::normalizeRadian(destAngularPosition - obstAngularPosition);
             double nowHeading = 0;
 
