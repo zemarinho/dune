@@ -626,12 +626,12 @@ namespace Control
         void
         goAroundCircle(Obstacle obstacle, double veicObstHorDist, double veicObstVerDist)
         {
-          inf("Avoiding collision Static Circle");
+          inf("Avoiding collision Circle");
 
           double obstRadPosition=0; //posição angular do centro do obstáculo relativamente ao veículo -pi:pi
           double destRadPosition=0; //posição angular do próximo GoTo relativamente ao veículo -pi:pi
           double nowHeading=0;
-          double shift = 1.05 * (obstacle.radius+obstacle.safetyZoneDistance);
+          double shift = 0.5 * (obstacle.radius+obstacle.safetyZoneDistance);
           double horShift=0, verShift=0;  //meters
           double lonShift=0, latShift=0;  //degrees
           double angular_distance=0;    //radians
@@ -698,7 +698,7 @@ namespace Control
         void
         goAroundRectangle(Obstacle obstacle, double veicObstHorDist, double veicObstVerDist)
         {
-          war("Avoiding collision Static Rectangle");
+          war("Avoiding collision Rectangle");
           // inf("largura:   %f", obstacle.width);
           // inf("altura:    %f", obstacle.height);
           // inf("HorDist:   %f", veicObstHorDist);
@@ -781,6 +781,7 @@ namespace Control
         int
         collisionCourse(Obstacle obstacle)
         {
+          war("Checking for obstacle on route");
           // === cálculo do vetor de velocidade do veículo ===
           Position_G targetPos = epIsSet ? endPoint : finalPos;
           Position_G veicDiference_G;
@@ -809,11 +810,8 @@ namespace Control
           {
             for (size_t i = 0; i < obstacle.positions.size() - 1; i++)
             {
-              obstDiferenceH_C += lonDist2horDist(obstacle.positions[i].lon - obstacle.positions[i+1].lon,
-                                                  obstacle.positions[i].lat) *
-                                  (obstacle.positions.size() - 1 - i);
-              obstDiferenceV_C += latDist2verDist(obstacle.positions[i].lat - obstacle.positions[i+1].lat) *
-                                  (obstacle.positions.size() - 1 - i);
+              obstDiferenceH_C += lonDist2horDist(obstacle.positions[i].lon - obstacle.positions[i+1].lon, obstacle.positions[i].lat) * (obstacle.positions.size() - 1 - i);
+              obstDiferenceV_C += latDist2verDist(obstacle.positions[i].lat - obstacle.positions[i+1].lat) * (obstacle.positions.size() - 1 - i);
               calculHelper += obstacle.positions.size() - 1 - i;
             }
           }
@@ -830,7 +828,7 @@ namespace Control
             Position_C obstDirectionNormalized = {obstDiferenceH_C / normalizer, obstDiferenceV_C / normalizer};
             obstVelocityVector = {obstDirectionNormalized.h * obstacle.velocity, obstDirectionNormalized.v * obstacle.velocity};
           }
-          // se normalizer == 0, velocidade do obstáculo é zero
+          // se    == 0, velocidade do obstáculo é zero
 
           // === posição relativa ===
           Position_C relativePosition = {0.0, 0.0};
@@ -840,8 +838,7 @@ namespace Control
             relativePosition.v = latDist2verDist(obstacle.positions.front().lat - currPos.lat);
           }
 
-          Position_C relativeVelocity = {obstVelocityVector.h - veicVelocityVector.h,
-                                         obstVelocityVector.v - veicVelocityVector.v};
+          Position_C relativeVelocity = {obstVelocityVector.h - veicVelocityVector.h, obstVelocityVector.v - veicVelocityVector.v};
 
           double relSpeedSq = relativeVelocity.h * relativeVelocity.h + relativeVelocity.v * relativeVelocity.v;
           if (relSpeedSq < 1e-12)
@@ -865,10 +862,10 @@ namespace Control
             return 0;
           }
 
-          Position_C minDistanceVector = {relativePosition.h + relativeVelocity.h * maxProximityInstant,
-                                          relativePosition.v + relativeVelocity.v * maxProximityInstant};
+          Position_C minDistanceVector = {relativePosition.h + relativeVelocity.h * maxProximityInstant, relativePosition.v + relativeVelocity.v * maxProximityInstant};
           double minDistance = hypot(minDistanceVector.h, minDistanceVector.v);
 
+          inf("minDistancePosition: %f %f", currPos.lon+horDist2lonDist(minDistanceVector.h, currPos.lat), currPos.lat+verDist2latDist(minDistanceVector.v));
           // distância de segurança: para círculo usa-se raio, para rectângulo usa-se a distância do centro ao vértice (já em obstacle.radius)
           double safeDist = obstacle.radius + obstacle.safetyZoneDistance;
           if (minDistance > safeDist)
@@ -883,6 +880,7 @@ namespace Control
         void
         goAroundFar(Obstacle obstacle, Position_C minRelativePosition, Position_C obstVelocity)
         {
+          war("Going around faraway obstacle");
           // === calculo da perpendicular à posição relativa ===
           double relativeDistance = sqrt(minRelativePosition.h * minRelativePosition.h + minRelativePosition.v * minRelativePosition.v);
 
