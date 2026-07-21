@@ -757,119 +757,100 @@ namespace Control
         int
         collisionCourse(Obstacle obstacle)
         {
-          /**
-           * TODO: acrescentar if no checkPosition para verificar se a posição do obstáculo se alterou, e só nesse caso chamar collisionCourse()
-           */
-
-          war("Estive aqui");
           // === cálculo do vetor de velocidade do veículo ===
           Position_G veicDiference_G;
           veicDiference_G.lon = finalPos.lon - currPos.lon;
           veicDiference_G.lat = finalPos.lat - currPos.lat;
 
-          //conversão para metros;
           Position_C veicDiference_C;
           veicDiference_C.h = lonDist2horDist(veicDiference_G.lon, veicDiference_G.lat);
           veicDiference_C.v = latDist2verDist(veicDiference_G.lat);
 
-          double veicDistance = sqrt(veicDiference_C.h * veicDiference_C.h + veicDiference_C.v * veicDiference_C.v);
-
-          if (veicDistance == 0)
+          double veicDistance = hypot(veicDiference_C.h, veicDiference_C.v);
+          Position_C veicVelocityVector = {0.0, 0.0};
+          if (veicDistance > 1e-9)
           {
-            war(">> Divisão por 0 (1)");
+            Position_C veicDiferenceNormalized = {veicDiference_C.h / veicDistance, veicDiference_C.v / veicDistance};
+            veicVelocityVector = {veicDiferenceNormalized.h * currSpeed, veicDiferenceNormalized.v * currSpeed};
           }
-
-          Position_C veicDiferenceNormalized = {veicDiference_C.h/veicDistance, veicDiference_C.v/veicDistance};
-
-          //!arranjar valor da velocidade atual do veículo
-          Position_C veicVelocityVector = {veicDiferenceNormalized.h * currSpeed, veicDiferenceNormalized.v * currSpeed};
-          // === End ===
-
+          // se veicDistance == 0, velocidade é zero (veículo parado no destino)
 
           // === cálculo do vetor velocidade do obstáculo ===
-          double obstDiferenceH_C = 0;
-          double obstDiferenceV_C = 0;
-          Position_C obstVelocityVector;
-          //// double obstDirection; //heading radians [-pi;pi]
-
+          double obstDiferenceH_C = 0.0;
+          double obstDiferenceV_C = 0.0;
           int calculHelper = 0;
 
           if (obstacle.positions.size() > 2)
           {
-            for (size_t i = 0; i<obstacle.positions.size()-1; i++)
+            for (size_t i = 0; i < obstacle.positions.size() - 1; i++)
             {
-              obstDiferenceH_C += lonDist2horDist(obstacle.positions[i].lon - obstacle.positions[i+1].lon, obstacle.positions[i].lat) * (obstacle.positions.size()-1-i);
-              obstDiferenceV_C += latDist2verDist(obstacle.positions[i].lat - obstacle.positions[i+1].lat) * (obstacle.positions.size()-1-i);
-              calculHelper += obstacle.positions.size()-1-i;
+              obstDiferenceH_C += lonDist2horDist(obstacle.positions[i].lon - obstacle.positions[i+1].lon,
+                                                  obstacle.positions[i].lat) *
+                                  (obstacle.positions.size() - 1 - i);
+              obstDiferenceV_C += latDist2verDist(obstacle.positions[i].lat - obstacle.positions[i+1].lat) *
+                                  (obstacle.positions.size() - 1 - i);
+              calculHelper += obstacle.positions.size() - 1 - i;
             }
           }
 
-          // inf("distH:         %f", obstDiferenceH_C);
-          // inf("distV:         %f", obstDiferenceV_C);
-          // inf("calculHelper:  %d", calculHelper);
-
-          obstDiferenceH_C = obstDiferenceH_C/calculHelper;
-          obstDiferenceV_C = obstDiferenceV_C/calculHelper;
-
-          // inf("distH: %f", obstDiferenceH_C);
-          // inf("distV: %f", obstDiferenceV_C);
-
-          Position_C obstDirectionNormalized;
-          double normalizer = hypot(obstDiferenceH_C, obstDiferenceV_C);
-          if (normalizer < 0.0000001)
+          if (calculHelper > 0)
           {
-            obstVelocityVector = {0, 0};
+            obstDiferenceH_C /= calculHelper;
+            obstDiferenceV_C /= calculHelper;
           }
-          else
-          {
-            obstDirectionNormalized = {obstDiferenceH_C/normalizer, obstDiferenceV_C/normalizer};
+
+          Position_C obstVelocityVector = {0.0, 0.0};
+          double normalizer = hypot(obstDiferenceH_C, obstDiferenceV_C);
+          if (normalizer > 1e-9) {
+            Position_C obstDirectionNormalized = {obstDiferenceH_C / normalizer, obstDiferenceV_C / normalizer};
             obstVelocityVector = {obstDirectionNormalized.h * obstacle.velocity, obstDirectionNormalized.v * obstacle.velocity};
           }
-          // === End ===
+          // se normalizer == 0, velocidade do obstáculo é zero
 
-          // === calculo de posição e velocidade relativas ===
-          Position_C relativePosition ={0, 0};
+          // === posição relativa ===
+          Position_C relativePosition = {0.0, 0.0};
           if (!obstacle.positions.empty())
           {
-            relativePosition = {lonDist2horDist(obstacle.positions.front().lon - currPos.lon, currPos.lat), latDist2verDist(obstacle.positions.front().lat - currPos.lat)};
+            relativePosition.h = lonDist2horDist(obstacle.positions.front().lon - currPos.lon, currPos.lat);
+            relativePosition.v = latDist2verDist(obstacle.positions.front().lat - currPos.lat);
           }
-          else
-          {
-            war("Empty Positions");
-          }
-          Position_C relativeVelocity = {obstVelocityVector.h - veicVelocityVector.h, obstVelocityVector.v - veicVelocityVector.v};
-          // === End ===
 
-          // === calculo do instante de maior proximidade entre o veículo e o obstáculo ===
-          double maxProximityInstant = 0;
-          if ((relativeVelocity.h * relativeVelocity.h + relativeVelocity.v * relativeVelocity.v) != 0)
-          {
-            maxProximityInstant = -(relativePosition.h * relativeVelocity.h + relativePosition.v * relativeVelocity.v) / (relativeVelocity.h * relativeVelocity.h + relativeVelocity.v * relativeVelocity.v);
-          }
-          else
-          {
-            war(">> Divisão por 0 (3)");
-          }
-          // === End ===
+          Position_C relativeVelocity = {obstVelocityVector.h - veicVelocityVector.h,
+                                         obstVelocityVector.v - veicVelocityVector.v};
 
-          // === calculo do instante em que é atingido o destino ===
-          double veicArrivalInstant = veicDistance / currSpeed;
-          // === End ===
+          double relSpeedSq = relativeVelocity.h * relativeVelocity.h + relativeVelocity.v * relativeVelocity.v;
+          if (relSpeedSq < 1e-12)
+          {
+            // velocidades relativas nulas → não há aproximação
+            return 0;
+          }
 
-          if (maxProximityInstant > veicArrivalInstant) // verificar se atinge o destino antes de estar demasiado próximo do obstáculo
+          double maxProximityInstant = -(relativePosition.h * relativeVelocity.h + relativePosition.v * relativeVelocity.v) / relSpeedSq;
+          if (maxProximityInstant < 0)
+          {
+            // já passou o ponto de maior aproximação
+            return 0;
+          }
+
+          // instante de chegada ao destino (se currSpeed for zero, consideramos infinito)
+          double veicArrivalInstant = (currSpeed > 1e-9) ? veicDistance / currSpeed : 1e9;
+          if (maxProximityInstant > veicArrivalInstant)
+          {
+            // atinge o destino antes da maior aproximação
+            return 0;
+          }
+
+          Position_C minDistanceVector = {relativePosition.h + relativeVelocity.h * maxProximityInstant,
+                                          relativePosition.v + relativeVelocity.v * maxProximityInstant};
+          double minDistance = hypot(minDistanceVector.h, minDistanceVector.v);
+
+          // distância de segurança: para círculo usa-se raio, para rectângulo usa-se a distância do centro ao vértice (já em obstacle.radius)
+          double safeDist = obstacle.radius + obstacle.safetyZoneDistance;
+          if (minDistance > safeDist)
           {
             return 0;
           }
-          // === calculo da distância mínima  entre o veículo e o obstáculo ===
-          Position_C minDistanceVector = {relativePosition.h + relativeVelocity.h * maxProximityInstant, relativePosition.v + relativeVelocity.v * maxProximityInstant};
 
-          double minDistance = sqrt(minDistanceVector.h * minDistanceVector.h + minDistanceVector.v * minDistanceVector.v);
-          // === End ===
-
-          if (maxProximityInstant < 0 || minDistance > obstacle.radius/2 + obstacle.safetyZoneDistance) //verificar se há uma colisão eminente
-          {
-            return 0;
-          }
           goAroundFar(obstacle, minDistanceVector, obstVelocityVector);
           return 1;
         }
