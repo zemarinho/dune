@@ -393,6 +393,18 @@ namespace Control
               m_obst_index[obstacle.id] = m_obstacles.size();
               m_obstacles.push_back(obstacle);
               war(">> Obstacle added successfully: %s", obstacle.id.c_str());
+              inf("%c", obstacle.type);
+              inf("%c", obstacle.shape);
+              inf("%f", obstacle.safetyZoneDistance);
+              for (auto pos : obstacle.positions)
+              {
+                inf("%f %f", pos.lon, pos.lat);
+              }
+              inf("%f", obstacle.radius);
+              inf("%f", obstacle.width);
+              inf("%f", obstacle.height);
+              inf("%f", obstacle.velocity);
+              inf("%s", obstacle.id.c_str());
               continue;
             }
 
@@ -404,11 +416,24 @@ namespace Control
             {
               obstacle.width = std::stod(dimensions_str[2]);
               obstacle.height = std::stod(dimensions_str[3]);
+              obstacle.radius = hypot(obstacle.width/2, obstacle.height/2);
             }
 
             m_obst_index[obstacle.id] = m_obstacles.size();
             m_obstacles.push_back(obstacle);
             war(">> Obstacle added successfully: %s", obstacle.id.c_str());
+            inf("%c", obstacle.type);
+            inf("%c", obstacle.shape);
+            inf("%f", obstacle.safetyZoneDistance);
+            for (auto pos : obstacle.positions)
+            {
+              inf("%f %f", pos.lon, pos.lat);
+            }
+            inf("%f", obstacle.radius);
+            inf("%f", obstacle.width);
+            inf("%f", obstacle.height);
+            inf("%f", obstacle.velocity);
+            inf("%s", obstacle.id.c_str());
           }
         }
 
@@ -466,6 +491,11 @@ namespace Control
             double verticalDistanceV = 0, verticalDistanceO = 0; //referência é o veículo, referência é o obstáculo
             double veicleObstacleDistance = 0;
 
+            if (!avoidingcollision)
+            {
+              avoidingcollision = collisionCourse(obstacle);
+            }
+
             if (!obstacle.positions.empty())
             {
               horizontalDistanceV = lonDist2horDist(obstacle.positions.front().lon - currPos.lon, currPos.lat);
@@ -492,7 +522,7 @@ namespace Control
                 {
                   inf("Trying to avoid collision Static Circle Point");
                   goAroundCircle(obstacle, horizontalDistanceV, verticalDistanceV);
-                  avoidingcollision = 1;
+                  avoidingcollision = 2;
                 }
                 else
                 {
@@ -506,7 +536,7 @@ namespace Control
                 {
                   inf("Trying to avoid collision Static Circle Zone");
                   goAroundCircle(obstacle, horizontalDistanceV, verticalDistanceV);
-                  avoidingcollision = 1;
+                  avoidingcollision = 2;
                 }
                 else
                 {
@@ -522,7 +552,7 @@ namespace Control
                 {
                   inf("Trying to avoid collision Static Rectangle Point");
                   goAroundCircle(obstacle, horizontalDistanceV, verticalDistanceV);
-                  avoidingcollision = 1;
+                  avoidingcollision = 2;
                 }
                 else
                 {
@@ -538,7 +568,7 @@ namespace Control
                 {
                   inf("Trying to avoid collision Static Rectangle Poin");
                   goAroundRectangle(obstacle, horizontalDistanceO, verticalDistanceO);
-                  avoidingcollision = 1;
+                  avoidingcollision = 2;
                 }
                 else
                 {
@@ -724,13 +754,14 @@ namespace Control
         /**
          * @brief vreifica se dois obstáculos pontuais estão em rota de colisão
          */
-        void
-        colisionCourse(Obstacle obstacle)
+        int
+        collisionCourse(Obstacle obstacle)
         {
           /**
-           * TODO: acrescentar if no checkPosition para verificar se a posição do obstáculo se alterou, e só nesse caso chamar colisionCourse()
+           * TODO: acrescentar if no checkPosition para verificar se a posição do obstáculo se alterou, e só nesse caso chamar collisionCourse()
            */
 
+          war("Estive aqui");
           // === cálculo do vetor de velocidade do veículo ===
           Position_G veicDiference_G;
           veicDiference_G.lon = finalPos.lon - currPos.lon;
@@ -745,7 +776,7 @@ namespace Control
 
           if (veicDistance == 0)
           {
-            war(">> Divisão por 0");
+            war(">> Divisão por 0 (1)");
           }
 
           Position_C veicDiferenceNormalized = {veicDiference_C.h/veicDistance, veicDiference_C.v/veicDistance};
@@ -769,28 +800,31 @@ namespace Control
             {
               obstDiferenceH_C += lonDist2horDist(obstacle.positions[i].lon - obstacle.positions[i+1].lon, obstacle.positions[i].lat) * (obstacle.positions.size()-1-i);
               obstDiferenceV_C += latDist2verDist(obstacle.positions[i].lat - obstacle.positions[i+1].lat) * (obstacle.positions.size()-1-i);
-              calculHelper = obstacle.positions.size()-1-i;
+              calculHelper += obstacle.positions.size()-1-i;
             }
           }
+
+          // inf("distH:         %f", obstDiferenceH_C);
+          // inf("distV:         %f", obstDiferenceV_C);
+          // inf("calculHelper:  %d", calculHelper);
 
           obstDiferenceH_C = obstDiferenceH_C/calculHelper;
           obstDiferenceV_C = obstDiferenceV_C/calculHelper;
 
+          // inf("distH: %f", obstDiferenceH_C);
+          // inf("distV: %f", obstDiferenceV_C);
+
           Position_C obstDirectionNormalized;
-          if (obstDiferenceH_C * obstDiferenceH_C + obstDiferenceV_C * obstDiferenceV_C == 0)
+          double normalizer = hypot(obstDiferenceH_C, obstDiferenceV_C);
+          if (normalizer < 0.0000001)
           {
-            war(">> Divisão por 0");
-            obstDirectionNormalized = {obstDiferenceH_C/sqrt(obstDiferenceH_C * obstDiferenceH_C + obstDiferenceV_C * obstDiferenceV_C), obstDiferenceV_C};
+            obstVelocityVector = {0, 0};
           }
           else
           {
-            obstDirectionNormalized = {obstDiferenceH_C/sqrt(obstDiferenceH_C * obstDiferenceH_C + obstDiferenceV_C * obstDiferenceV_C), obstDiferenceV_C/sqrt(obstDiferenceH_C * obstDiferenceH_C + obstDiferenceV_C * obstDiferenceV_C)};
-
+            obstDirectionNormalized = {obstDiferenceH_C/normalizer, obstDiferenceV_C/normalizer};
+            obstVelocityVector = {obstDirectionNormalized.h * obstacle.velocity, obstDirectionNormalized.v * obstacle.velocity};
           }
-
-          obstVelocityVector = {obstDirectionNormalized.h * obstacle.velocity, obstDirectionNormalized.v * obstacle.velocity};
-
-          //// obstDirection = Angles::normalizeRadian(atan2(obstDiferenceV_C, obstDiferenceH_C));
           // === End ===
 
           // === calculo de posição e velocidade relativas ===
@@ -806,7 +840,7 @@ namespace Control
           Position_C relativeVelocity = {obstVelocityVector.h - veicVelocityVector.h, obstVelocityVector.v - veicVelocityVector.v};
           // === End ===
 
-          // === calculo do instante de maior proximidade entre o veículo e o obstáculo e da distância mínima ===
+          // === calculo do instante de maior proximidade entre o veículo e o obstáculo ===
           double maxProximityInstant = 0;
           if ((relativeVelocity.h * relativeVelocity.h + relativeVelocity.v * relativeVelocity.v) != 0)
           {
@@ -814,9 +848,19 @@ namespace Control
           }
           else
           {
-            war(">> Divisão por 0");
+            war(">> Divisão por 0 (3)");
           }
+          // === End ===
 
+          // === calculo do instante em que é atingido o destino ===
+          double veicArrivalInstant = veicDistance / currSpeed;
+          // === End ===
+
+          if (maxProximityInstant > veicArrivalInstant) // verificar se atinge o destino antes de estar demasiado próximo do obstáculo
+          {
+            return 0;
+          }
+          // === calculo da distância mínima  entre o veículo e o obstáculo ===
           Position_C minDistanceVector = {relativePosition.h + relativeVelocity.h * maxProximityInstant, relativePosition.v + relativeVelocity.v * maxProximityInstant};
 
           double minDistance = sqrt(minDistanceVector.h * minDistanceVector.h + minDistanceVector.v * minDistanceVector.v);
@@ -824,9 +868,10 @@ namespace Control
 
           if (maxProximityInstant < 0 || minDistance > obstacle.radius/2 + obstacle.safetyZoneDistance) //verificar se há uma colisão eminente
           {
-            return;
+            return 0;
           }
           goAroundFar(obstacle, minDistanceVector, obstVelocityVector);
+          return 1;
         }
 
         void
@@ -898,7 +943,10 @@ namespace Control
           WGS84::displace(state.x, state.y, &curr_lat, &curr_lon);
           bool dsptch = false;
 
-          finalPos = {Angles::degrees(ts.lon_en), Angles::degrees(ts.lat_en)};
+          if (!currAvoidState)
+          {
+            finalPos = {Angles::degrees(ts.lon_en), Angles::degrees(ts.lat_en)};
+          }
 
           inf("Next Pos:        %f %f", finalPos.lon, finalPos.lat);
           war("Final Pos:       %f %f", endPoint.lon, endPoint.lat);
@@ -918,7 +966,7 @@ namespace Control
 
           // inf("%s", ((ts.nearby) ? "Nearby" : "Not Nearby"));
 
-          inf("I'm Here:        %f %f", currPos.lon, currPos.lat);
+          // inf("I'm Here:        %f %f", currPos.lon, currPos.lat);
 
           for (auto obst : m_obstacles)
           {
@@ -934,7 +982,7 @@ namespace Control
 
           currAvoidState = checkPosition(m_obstacles);
 
-          lado = (!currAvoidState) ? 0 : lado;
+          // lado = (!currAvoidState) ? 0 : lado;
 
           if (!epIsSet && currAvoidState && !oldAvoidState)   //se o DesiredPath foi definido por este controlador e o endPoint ainda não foi definido
           {
@@ -944,7 +992,7 @@ namespace Control
           }
 
           // Se DEIXOU de evitar colisão, restaurar o destino original
-          if (!currAvoidState && oldAvoidState && epIsSet)
+          if (currAvoidState < oldAvoidState && epIsSet)
           {
             war("Saiu de evasão, restaurando destino original");
             m_path.end_lon = endPoint.lon;      //restaurar o GoTo original
