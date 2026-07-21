@@ -17252,7 +17252,7 @@ namespace DUNE
       static uint16_t
       getIdStatic(void)
       {
-        return 504;
+        return 523;
       }
 
       ManeuverDecision(void);
@@ -17262,6 +17262,12 @@ namespace DUNE
       {
         return new ManeuverDecision(*this);
       }
+
+      bool
+      fieldsEqual(const Message& msg__) const;
+
+      void
+      fieldsToJSON(std::ostream& os__, unsigned nindent__) const;
 
       void
       clear(void);

@@ -535,6 +535,12 @@ namespace Supervisors
             return;
 
         m_stage_man_id = msg->man_id;
+
+        if (m_bt_ready)
+        {
+          m_bt_blackboard->set("Consume_ID", 2);
+          m_bt_tree.tickOnce();
+        } 
       }
 
       void
@@ -1005,6 +1011,10 @@ namespace Supervisors
         tick() override
         {
           auto msg = getInput<const DUNE::IMC::ManeuverControlState*>("msg");
+
+          if (!msg || !msg.value()) 
+            return BT::NodeStatus::FAILURE;
+
           if(msg.value()->getSource() == mt->getSystemId())
           {
             mt->m_man_sup->update(msg.value());
@@ -1225,12 +1235,23 @@ namespace Supervisors
             // Non plan end
             if (mt->maneuverMode() && !mt->m_stage_man_id.empty())
             {
+              bool changed = (mt->m_resume_man_id != mt->m_stage_man_id) || !mt->m_can_resume;
+
               mt->m_resume_man_id = mt->m_stage_man_id;
               mt->m_resume_plan_id = mt->m_stage_plan_id;
               mt->m_can_resume = true;
-              
-              mt->trace("BT synchronized tracking profile: %s (Plan: %s)", 
-                        mt->m_resume_man_id.c_str(), mt->m_resume_plan_id.c_str());
+
+              if (changed)
+              {
+                IMC::ManeuverDecision msg;
+                msg.manuever_resume = mt->m_can_resume;
+                msg.manuever_id = mt->m_resume_man_id;
+                msg.setDestination(mt->getSystemId());
+                mt->dispatch(msg);
+
+                mt->trace("BT synchronized tracking profile: %s (Plan: %s)", 
+                          mt->m_resume_man_id.c_str(), mt->m_resume_plan_id.c_str());
+              }
             }
 
             // Skip Manuever

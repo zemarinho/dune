@@ -18404,6 +18404,68 @@ namespace DUNE
       IMC::toJSON(os__, "last_error_time", last_error_time, nindent__);
     }
 
+    ManeuverDecision::ManeuverDecision(void)
+    {
+      m_header.mgid = 523;
+      clear();
+    }
+
+    void
+    ManeuverDecision::clear(void)
+    {
+      manuever_resume = false;
+      manuever_id.clear();
+    }
+
+    bool
+    ManeuverDecision::fieldsEqual(const Message& msg__) const
+    {
+      const IMC::ManeuverDecision& other__ = static_cast<const ManeuverDecision&>(msg__);
+      if (manuever_resume != other__.manuever_resume) return false;
+      if (manuever_id != other__.manuever_id) return false;
+      return true;
+    }
+
+    int
+    ManeuverDecision::validate(void) const
+    {
+      return true;
+    }
+
+    uint8_t*
+    ManeuverDecision::serializeFields(uint8_t* bfr__) const
+    {
+      uint8_t* ptr__ = bfr__;
+      ptr__ += IMC::serialize(manuever_resume, ptr__);
+      ptr__ += IMC::serialize(manuever_id, ptr__);
+      return ptr__;
+    }
+
+    uint16_t
+    ManeuverDecision::deserializeFields(const uint8_t* bfr__, uint16_t size__)
+    {
+      const uint8_t* start__ = bfr__;
+      bfr__ += IMC::deserialize(manuever_resume, bfr__, size__);
+      bfr__ += IMC::deserialize(manuever_id, bfr__, size__);
+      return bfr__ - start__;
+    }
+
+    uint16_t
+    ManeuverDecision::reverseDeserializeFields(const uint8_t* bfr__, uint16_t size__)
+    {
+      const uint8_t* start__ = bfr__;
+      bfr__ += IMC::deserialize(manuever_resume, bfr__, size__);
+      bfr__ += IMC::reverseDeserialize(manuever_id, bfr__, size__);
+      return bfr__ - start__;
+    }
+
+    void
+    ManeuverDecision::fieldsToJSON(std::ostream& os__, unsigned nindent__) const
+    {
+      IMC::toJSON(os__, "manuever_resume", manuever_resume, nindent__);
+      IMC::toJSON(os__, "manuever_id", manuever_id, nindent__);
+    }
+
     VehicleCommand::VehicleCommand(void)
     {
       m_header.mgid = 501;

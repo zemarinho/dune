@@ -203,6 +203,7 @@ namespace Plan
         bind<IMC::EntityInfo>(this);
         bind<IMC::EntityActivationState>(this);
         bind<IMC::FuelLevel>(this);
+        bind<IMC::ManeuverDecision>(this);
       }
 
       void
@@ -275,6 +276,29 @@ namespace Plan
 
         if (msg->state == IMC::ManeuverControlState::MCS_DONE)
           m_plan->maneuverDone();
+      }
+
+      void
+      consume(const IMC::ManeuverDecision* msg)
+      {
+        if (msg->getSource() != getSystemId())
+          return;
+
+        if (msg->manuever_resume)
+        {
+          m_vs_can_resume = true;
+          war(DTR("Supervisor has flagged a resume point at maneuver: %s"), msg->manuever_id.c_str());
+        }
+        else
+        {
+          m_vs_can_resume = false;
+          war(DTR("HELL NAH"));
+        }
+
+        m_vs_resume_man_id = msg->manuever_id;
+
+        war(DTR("Supervisor has flagged a resume point at maneuver: %s"), m_vs_resume_man_id.c_str());
+
       }
 
       void
@@ -393,7 +417,7 @@ namespace Plan
         m_last_vstate = Clock::get();
 
         // Check if the supervisor has flagged a valid resume point
-        m_vs_can_resume = (vs->flags & IMC::VehicleState::VFLG_MANEUVER_DONE) != 0;
+        //m_vs_can_resume = (vs->flags & IMC::VehicleState::VFLG_MANEUVER_DONE) != 0;
 
         switch (vs->op_mode)
         {
