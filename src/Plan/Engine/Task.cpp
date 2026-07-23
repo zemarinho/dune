@@ -134,6 +134,8 @@ namespace Plan
       //! True if the supervisor indicates a resume is possible.
       bool m_vs_can_resume;
       //! The ID of the last maneuver attempted/executed.
+      std::string m_vs_resume_plan_id;
+      //! The ID of the last maneuver attempted/executed.
       std::string m_vs_resume_man_id;
 
       Task(const std::string& name, Tasks::Context& ctx):
@@ -287,18 +289,21 @@ namespace Plan
         if (msg->manuever_resume)
         {
           m_vs_can_resume = true;
-          war(DTR("Supervisor has flagged a resume point at maneuver: %s"), msg->manuever_id.c_str());
+          m_vs_resume_plan_id = msg->plan_id;
+          m_vs_resume_man_id = msg->manuever_id;
+          war(DTR("Supervisor has flagged a resume point at maneuver: %s , plan: %s"), 
+              m_vs_resume_man_id.c_str(), m_vs_resume_plan_id.c_str());
         }
         else
         {
-          m_vs_can_resume = false;
-          war(DTR("HELL NAH"));
+          // Only clear if we aren't holding onto a valid resume point from a previous plan
+          if (m_vs_resume_plan_id.empty())
+          {
+            m_vs_can_resume = false;
+            m_vs_resume_man_id.clear();
+            war(DTR("Resume point cleared by supervisor"));
+          }
         }
-
-        m_vs_resume_man_id = msg->manuever_id;
-
-        war(DTR("Supervisor has flagged a resume point at maneuver: %s"), m_vs_resume_man_id.c_str());
-
       }
 
       void
@@ -452,10 +457,15 @@ namespace Plan
               
               IMC::PlanManeuver* pman = NULL;
 
-              if (m_vs_can_resume && !m_vs_resume_man_id.empty())
+              if (m_vs_can_resume && !m_vs_resume_man_id.empty() && m_vs_resume_plan_id == m_spec.plan_id)
               {
                 inf(DTR("resuming execution path after calibration at waypoint: %s"), m_vs_resume_man_id.c_str());
                 pman = m_plan->loadResumeManeuver(m_vs_resume_man_id);
+              }
+              else
+              {
+                inf(DTR("starting execution sequence from plan origin"));
+                pman = m_plan->loadStartManeuver();
               }
 
               if (pman == NULL)
@@ -519,8 +529,8 @@ namespace Plan
         {
           if (m_plan->isDone())
           {
+            
             vehicleRequest(IMC::VehicleCommand::VC_STOP_MANEUVER);
-            m_vs_resume_man_id.clear();
             std::string comp = DTR("plan completed");
             onSuccess(comp, false);
             m_pcs.last_outcome = IMC::PlanControlState::LPO_SUCCESS;
@@ -701,18 +711,28 @@ namespace Plan
           return false;
         }
 
+        // Inside loadPlan():
         if (m_pcs.plan_id != plan_id)
         {
-
-          if (m_vs_can_resume && !m_vs_resume_man_id.empty())
+          // 1. Returning to the plan that matches our stored resume point
+          if (!m_vs_resume_man_id.empty() && m_vs_resume_plan_id == plan_id)
           {
-            inf(DTR("new plan container context matching active resume sequence ('%s'), preserving tracking point: %s"), 
+            m_vs_can_resume = true; // Ensure flag stays active
+            inf(DTR("Returning to saved plan '%s', preserving resume point: %s"), 
                 plan_id.c_str(), m_vs_resume_man_id.c_str());
           }
+          // 2. Loading a temporary / teleoperation / auxiliary plan while a primary plan resume point exists
+          else if (!m_vs_resume_man_id.empty() && m_vs_resume_plan_id != plan_id)
+          {
+            inf(DTR("Intermediary plan '%s' loaded: keeping resume point '%s' intact for plan '%s'"), 
+                plan_id.c_str(), m_vs_resume_man_id.c_str(), m_vs_resume_plan_id.c_str());
+          }
+          // 3. Loading a completely new distinct plan when no matching resume point exists
           else
           {
-            inf(DTR("new plan detected ('%s'), clearing resume point"), plan_id.c_str());
+            inf(DTR("New distinct plan detected ('%s'), clearing resume point"), plan_id.c_str());
             m_vs_resume_man_id.clear();
+            m_vs_resume_plan_id.clear();
             m_vs_can_resume = false;
           }
         }
@@ -930,12 +950,11 @@ namespace Plan
         }
 
         // --- Resume Logic (Forced Check) ---
-        // FIX: Explicitly declare pman pointer here
         IMC::PlanManeuver* pman = NULL;
 
-        if (!m_vs_resume_man_id.empty())
+        if (!m_vs_resume_man_id.empty() && m_vs_resume_plan_id == plan_id)
         {
-          inf(DTR("Resuming plan execution at saved step: %s"), m_vs_resume_man_id.c_str());
+          inf(DTR("Resuming plan '%s' execution at saved step: %s"), plan_id.c_str(), m_vs_resume_man_id.c_str());
           pman = m_plan->loadResumeManeuver(m_vs_resume_man_id);
           
           if (pman == NULL)
@@ -946,7 +965,7 @@ namespace Plan
         }
         else
         {
-          inf(DTR("Starting fresh execution track from root maneuver node"));
+          inf(DTR("Starting fresh execution track for plan '%s'"), plan_id.c_str());
           pman = m_plan->loadStartManeuver();
         }
         // ------------------------------------
@@ -1029,9 +1048,6 @@ namespace Plan
                    pman->maneuver_id, pman->data.get(), TYPE_INF);
 
         m_plan->maneuverStarted(pman->maneuver_id);
-
-        // Update the resume point to the maneuver we just started
-        m_vs_resume_man_id = pman->maneuver_id;
       }
 
       //! Answer to the plan control request

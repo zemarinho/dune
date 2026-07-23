@@ -17247,6 +17247,7 @@ namespace DUNE
     public:
 
       bool manuever_resume;
+      std::string plan_id;
       std::string manuever_id;
 
       static uint16_t
